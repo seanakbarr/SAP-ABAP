@@ -1,0 +1,40 @@
+*&---------------------------------------------------------------------*
+*& Report Z44655_W3D3_01
+*&---------------------------------------------------------------------*
+*& DDIC
+*&---------------------------------------------------------------------*
+REPORT Z44655_W3D3_01.
+
+DATA GV_C8 TYPE ZECHAR8_44655.
+
+*GV_C8 = '12345678'.
+*WRITE GV_C8.
+*
+*GV_C8 = 'AbCdEfGh'.
+*WRITE GV_C8.
+
+*TYPES: BEGIN OF ts_test,
+*         MANDT        TYPE ZTTABLE_44655-MANDT   ,
+*         CARRID       TYPE ZTTABLE_44655-CARRID  ,
+*         CARRNAME     TYPE ZTTABLE_44655-CARRNAME,
+*         CURRCODE     TYPE ZTTABLE_44655-CURRCODE,
+*         URL          TYPE ZTTABLE_44655-URL     ,
+*       END OF ts_test.
+
+DATA: LT_TEST TYPE STANDARD TABLE OF ZTTABLE_44655.
+
+SELECT *
+  FROM ZTTABLE_44655
+  INTO CORRESPONDING FIELDS OF TABLE LT_TEST.
+
+IF SY-SUBRC = 0.
+  CL_DEMO_OUTPUT=>DISPLAY( LT_TEST ).
+ENDIF.
+
+DATA LT_TEST2 TYPE ZTTTABLE_TYPE_44655.
+DATA LS_VALUE TYPE ZECHAR8_44655.
+
+LS_VALUE = 'test'.
+APPEND LS_VALUE TO LT_TEST2.
+
+BREAK-POINT.

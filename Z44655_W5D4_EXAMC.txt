@@ -1,0 +1,161 @@
+*&---------------------------------------------------------------------*
+*& Report z44655_w5d4_examc
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT Z44655_W5D4_EXAMC.
+
+TABLES: VBRK,
+        VBRP.
+
+SELECT-OPTIONS: S_FKDAT FOR VBRK-FKDAT OBLIGATORY.
+PARAMETERS: P_VKORG TYPE VBRK-VKORG OBLIGATORY DEFAULT '1710'.
+SELECT-OPTIONS: S_FKART FOR VBRK-FKART,
+                S_KUNRG FOR VBRK-KUNRG.
+
+INITIALIZATION.
+
+  PERFORM FRM_SET_DEFAULT_VALUE.
+
+AT SELECTION-SCREEN.
+
+  PERFORM FRM_CHECK_EXISTENCE USING P_VKORG.
+
+START-OF-SELECTION.
+
+    SELECT *
+    FROM ZVALV_W5D4_44655( S_FKDAT_L =  @S_FKDAT-LOW,
+                           S_FKDAT_H = @S_FKDAT-HIGH,
+                           P_VKORG = @P_VKORG )
+    INTO TABLE @DATA(GT_ALV).
+
+  PERFORM FRM_SHOW_ALV.
+
+*&---------------------------------------------------------------------*
+*& Form FRM_SET_DEFAULT_VALUE
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM FRM_SET_DEFAULT_VALUE.
+
+  DATA LS_FKDAT LIKE LINE OF S_FKDAT.
+  LS_FKDAT-SIGN   = 'I'.
+  LS_FKDAT-OPTION = 'BT'.
+  LS_FKDAT-LOW    = '20200101'.
+  LS_FKDAT-HIGH   = SY-DATUM.
+  APPEND LS_FKDAT TO S_FKDAT.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form FRM_CHECK_EXISTENCE
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*&      --> P_WERKS
+*&---------------------------------------------------------------------*
+FORM FRM_CHECK_EXISTENCE  USING    PV_VKORG.
+
+  DATA LV_VKORG TYPE VBRK-VKORG.
+  SELECT SINGLE VKORG
+    FROM TVKO
+    INTO LV_VKORG
+  WHERE VKORG = PV_VKORG.
+  IF SY-SUBRC <> 0.
+    MESSAGE 'Plant not found!' TYPE 'E'.
+  ENDIF.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form frm_show_alv
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM FRM_SHOW_ALV .
+
+  DATA LT_FCAT TYPE LVC_T_FCAT.
+  APPEND VALUE #( FIELDNAME = 'VKORG' REF_FIELD = 'VKORG' REF_TABLE = 'VBRK')                                                  TO LT_FCAT.
+  APPEND VALUE #( FIELDNAME = 'VTEXT' REF_FIELD = 'VTEXT' REF_TABLE = 'TVKOT')                                                 TO LT_FCAT.
+  APPEND VALUE #( FIELDNAME = 'KUNRG' REF_FIELD = 'KUNRG' REF_TABLE = 'VBRK' )                                                 TO LT_FCAT.
+  APPEND VALUE #( FIELDNAME = 'NAME1' REF_FIELD = 'NAME1' REF_TABLE = 'KNA1' )                                                 TO LT_FCAT.
+  APPEND VALUE #( FIELDNAME = 'QTY_2023' COLTEXT = 'Quantity 2023' REF_FIELD = 'FKIMG' REF_TABLE = 'VBRP' )                    TO LT_FCAT.
+  APPEND VALUE #( FIELDNAME = 'QTY_2022' COLTEXT = 'Quantity 2022' REF_FIELD = 'FKIMG' REF_TABLE = 'VBRP' )                    TO LT_FCAT.
+  APPEND VALUE #( FIELDNAME = 'QTY_2021' COLTEXT = 'Quantity 2021' REF_FIELD = 'FKIMG' REF_TABLE = 'VBRP' )                    TO LT_FCAT.
+  APPEND VALUE #( FIELDNAME = 'QTY_2020' COLTEXT = 'Quantity 2020' REF_FIELD = 'FKIMG' REF_TABLE = 'VBRP' )                    TO LT_FCAT.
+  APPEND VALUE #( FIELDNAME = 'QTY_TOTAL' COLTEXT = 'Quantity Total' REF_FIELD = 'FKIMG' REF_TABLE = 'VBRP' )                  TO LT_FCAT.
+  APPEND VALUE #( FIELDNAME = 'VRKME' REF_FIELD = 'VRKME' REF_TABLE = 'VBRP' )                                                 TO LT_FCAT.
+
+  CALL FUNCTION 'LVC_FIELDCATALOG_MERGE'
+    EXPORTING
+        I_STRUCTURE_NAME = 'ZVALV_W5D4_44655'
+    CHANGING
+        CT_FIELDCAT = LT_FCAT.
+
+  DELETE LT_FCAT WHERE FIELDNAME = '.NODE1'.
+
+  CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY_LVC'
+    EXPORTING
+      I_CALLBACK_PROGRAM = SY-REPID
+      I_GRID_TITLE       = 'Sales Billing Information for [Sean Akbar Ryanto]'
+      I_CALLBACK_PF_STATUS_SET = 'FRM_SET_PF_STATUS'
+      I_CALLBACK_USER_COMMAND  = 'FRM_USER_COMMAND'
+      IT_FIELDCAT_LVC    = LT_FCAT
+      I_DEFAULT          = 'X'
+      I_SAVE             = 'A'
+    TABLES
+    T_OUTTAB             = GT_ALV.
+
+ENDFORM.
+
+FORM FRM_SET_PF_STATUS USING PV_EXCL_TAB TYPE KKBLO_T_EXTAB.
+  SET PF-STATUS 'STANDARD_FULLSCREEN'.
+ENDFORM.
+
+FORM FRM_USER_COMMAND USING PV_UCOMM       LIKE SY-UCOMM
+                            PS_FIELD_INFO  TYPE SLIS_SELFIELD.
+  CASE PV_UCOMM.
+    WHEN '&IC1'.
+
+      DATA: LS_OUTPUT2 LIKE LINE OF GT_ALV.
+
+      READ TABLE GT_ALV INTO LS_OUTPUT2 INDEX PS_FIELD_INFO-TABINDEX.
+      IF SY-SUBRC <> 0.
+        RETURN.
+      ENDIF.
+
+      SELECT *
+        FROM ZVALV2_W5D4_44655( P_VKORG = @LS_OUTPUT2-VKORG,
+                                P_VBELN = @LS_OUTPUT2-VBELN,
+                                P_POSNR = @LS_OUTPUT2-POSNR )
+      INTO TABLE @DATA(LT_ALV).
+
+     DATA LT_FCAT TYPE LVC_T_FCAT.
+     CALL FUNCTION 'LVC_FIELDCATALOG_MERGE'
+        EXPORTING
+            I_STRUCTURE_NAME = 'ZVALV2_W5D4_44655'
+        CHANGING
+            CT_FIELDCAT = LT_FCAT.
+
+     DELETE LT_FCAT WHERE FIELDNAME = '.NODE1'.
+
+     CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY_LVC'
+        EXPORTING
+            I_CALLBACK_PROGRAM = SY-REPID
+            I_GRID_TITLE       = 'Sales Billing Details'
+            I_CALLBACK_PF_STATUS_SET = 'FRM_SET_PF_STATUS'
+            I_CALLBACK_USER_COMMAND  = 'FRM_USER_COMMAND'
+            IT_FIELDCAT_LVC    = LT_FCAT
+            I_DEFAULT          = 'X'
+            I_SAVE             = 'A'
+        TABLES
+            T_OUTTAB           = LT_ALV.
+
+
+    WHEN OTHERS.
+  ENDCASE.
+ENDFORM.

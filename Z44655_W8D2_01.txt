@@ -1,0 +1,173 @@
+*&---------------------------------------------------------------------*
+*& Report Z44655_W8D2_01
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT Z44655_W8D2_01.
+
+TYPES: BEGIN OF TS_SCARR.
+         INCLUDE TYPE SCARR.
+TYPES:   CELL_STYLE TYPE LVC_T_STYL,
+         CELL_COLOR TYPE LVC_T_SCOL.
+TYPES: END OF TS_SCARR.
+
+TYPES TT_SCARR TYPE STANDARD TABLE OF TS_SCARR.
+
+TYPES: BEGIN OF TS_SBOOK.
+         INCLUDE TYPE SBOOK.
+TYPES:   CELL_STYLE TYPE LVC_T_STYL,
+         CELL_COLOR TYPE LVC_T_SCOL.
+TYPES: END OF TS_SBOOK.
+
+TYPES TT_SBOOK TYPE STANDARD TABLE OF TS_SBOOK.
+
+DATA GT_SCARR TYPE TT_SCARR.
+DATA GS_SCARR TYPE TS_SCARR.
+
+DATA GT_SBOOK TYPE TT_SCARR.
+DATA GS_SBOOK TYPE TS_SCARR.
+
+SELECT * FROM SCARR INTO CORRESPONDING FIELDS OF TABLE GT_SCARR.
+SELECT * FROM SBOOK INTO CORRESPONDING FIELDS OF TABLE GT_SBOOK.
+
+ZHDCL_HALV_FACTORY=>GET_HALV( VALUE #( TYPE = 'HALV' BIND_ITAB = ABAP_TRUE COLOR_TABLE_NAME = 'CELL_COLOR'
+                                       STYLE_TABLE_NAME = 'CELL_STYLE' ) )->BIND( CHANGING ITAB = GT_SCARR )->DISPLAY( ).
+
+* Add ALV toolbar button
+FORM FRM_9000_HANDLE_TOOLBAR  USING PO_HALV        TYPE REF TO ZHDCL_HALV_PARENT
+                                    PO_OBJECT      TYPE REF TO CL_ALV_EVENT_TOOLBAR_SET
+                                    PV_INTERACTIVE TYPE CHAR01
+                           CHANGING CT_ALV_TABLE   TYPE STANDARD TABLE.
+
+  PO_HALV->ADD_BUTTON(  FUN_CODE  = TEXT-F01                 " Function code
+                        BTN_TYPE  =  0                       " Toolbar button type
+                        ICON      = ICON_CHECKED             " Icon name
+                        TEXT      = TEXT-F02                 " Text in Button
+                        QUICKINFO = TEXT-F03                 " Text Info
+                        OBJECT    = PO_OBJECT ).
+
+ENDFORM.
+
+* ALV toolbar command response
+FORM FRM_9000_HANDLE_USER_COMMAND USING PO_HALV      TYPE REF TO ZHDCL_HALV_PARENT
+                                        PV_UCOMM     TYPE SY-UCOMM
+                               CHANGING CT_ALV_TABLE TYPE STANDARD TABLE.
+
+  CASE PV_UCOMM.
+    WHEN TEXT-F01.
+
+      DATA LV_LINES TYPE I.
+      LV_LINES = LINES( CT_ALV_TABLE ).
+      MESSAGE '' && LV_LINES && 'Row Data' TYPE 'S'.
+
+    WHEN OTHERS.
+  ENDCASE.
+
+ENDFORM.
+
+* Modify field properties and layout before ALV display
+FORM FRM_9000_HANDLE_ON_PBO USING PO_HALV      TYPE REF TO ZHDCL_HALV_PARENT
+                         CHANGING CT_ALV_TABLE TYPE STANDARD TABLE.
+
+  DATA(FIELDCAT) = PO_HALV->GET_FIELDCAT( ).
+
+* After generating HALV, you can still modify its field directory and the attributes of each field.
+
+* AIrlines
+  IF LINE_EXISTS( FIELDCAT[ FIELDNAME = 'CARRID' ] ).
+    FIELDCAT[ FIELDNAME = 'CURRCODE' ]-KEY     = ABAP_TRUE.
+  ENDIF.
+
+* Currency
+  IF LINE_EXISTS( FIELDCAT[ FIELDNAME = 'CURRCODE' ] ).
+    FIELDCAT[ FIELDNAME = 'CURRCODE' ]-HOTSPOT = ABAP_TRUE.
+  ENDIF.
+
+* URL
+  IF LINE_EXISTS( FIELDCAT[ FIELDNAME = 'URL' ] ).
+    FIELDCAT[ FIELDNAME = 'URL' ]-EDIT = 'X'.
+  ENDIF.
+
+* Modify the field directory. You can pass in the field directory or the DDIC name.
+  PO_HALV->SET_FIELDCAT( FIELDCAT )."
+
+* The final fields to be retained are separated by spaces
+*  PO_HALV->SAVE_FIELDS( P_FIELDS ).
+
+*  After generating HALV, its layout setting properties can still be modified.
+  DATA(LAYOUT) = PO_HALV->GET_LAYOUT( ).
+*
+*  Make it editable
+*  layout-edit  = abap_true.
+  LAYOUT-CWIDTH_OPT = ABAP_TRUE.
+*
+*  Modify layout settings properties
+  PO_HALV->SET_LAYOUT( LAYOUT ).
+
+* Refresh
+  PO_HALV->REFRESH( ).
+
+ENDFORM.
+
+FORM FRM_9000_HANDLE_CHANGED_OVER USING PO_HALV       TYPE REF TO ZHDCL_HALV_PARENT
+                                        PV_MODIFIED   TYPE CHAR01
+                                        PT_GOOD_CELLS TYPE LVC_T_MODI
+                               CHANGING CT_ALV_TABLE  TYPE STANDARD TABLE.
+
+    DATA LS_CELL LIKE LINE OF PT_GOOD_CELLS.
+    DATA LS_CELL_COLOR TYPE LVC_S_SCOL.
+    DATA LS_CELL_STYLE TYPE LVC_S_STYL.
+
+    READ TABLE PT_GOOD_CELLS INTO LS_CELL INDEX 1.
+    IF SY-SUBRC = 0 AND PV_MODIFIED = 'X' AND LS_CELL-FIELDNAME = 'URL'.
+      MESSAGE 'Data Changed' TYPE 'S'.
+      IF LS_CELL-VALUE = 'A'.
+
+        CLEAR: LS_CELL_COLOR.
+        LS_CELL_COLOR-FNAME         = 'CARRID'.
+        LS_CELL_COLOR-COLOR-COL     = '6'.
+
+        APPEND LS_CELL_COLOR TO GS_SCARR-CELL_COLOR.
+        MODIFY GT_SCARR FROM GS_SCARR INDEX LS_CELL-ROW_ID TRANSPORTING CELL_COLOR.
+        CLEAR: GS_SCARR-CELL_COLOR.
+
+      ELSE.
+
+        CLEAR: LS_CELL_COLOR.
+        LS_CELL_COLOR-FNAME         = 'CARRID'.
+        LS_CELL_COLOR-COLOR-COL     = '3'.
+
+        APPEND LS_CELL_COLOR TO GS_SCARR-CELL_COLOR.
+        MODIFY GT_SCARR FROM GS_SCARR INDEX LS_CELL-ROW_ID TRANSPORTING CELL_COLOR.
+        CLEAR: GS_SCARR-CELL_COLOR.
+
+        CLEAR: LS_CELL_STYLE.
+        GS_SCARR-CURRCODE = ICON_INCOMPLETE.
+
+        LS_CELL_STYLE-FIELDNAME = 'CURRCODE'.
+        LS_CELL_STYLE-STYLE     =  CL_GUI_ALV_GRID=>MC_STYLE_BUTTON.
+
+        APPEND LS_CELL_STYLE TO GS_SCARR-CELL_STYLE.
+        MODIFY GT_SCARR FROM GS_SCARR INDEX LS_CELL-ROW_ID TRANSPORTING CELL_STYLE CURRCODE.
+
+      ENDIF.
+
+    ENDIF.
+
+ENDFORM.
+
+* Main list double click
+FORM FRM_9000_HANDLE_DOUBLE_CLICK USING PO_HALV      TYPE REF TO ZHDCL_HALV_PARENT
+                                        PS_ROW       TYPE LVC_S_ROW
+                                        PS_COLUMN    TYPE LVC_S_COL
+                               CHANGING CT_ALV_TABLE TYPE STANDARD TABLE.
+
+  READ TABLE GT_SBOOK INTO DATA(ALV_WA) INDEX PS_ROW-INDEX.
+  IF SY-SUBRC = 0.
+
+  ENDIF.
+  ZHDCL_HALV_FACTORY=>GET_HALV( VALUE #( TYPE = 'HALV' BIND_ITAB = ABAP_TRUE COLOR_TABLE_NAME = 'CELL_COLOR'
+                                       STYLE_TABLE_NAME = 'CELL_STYLE' ) )->BIND( CHANGING ITAB = GT_SBOOK )->DISPLAY( ).
+  PO_HALV->REFRESH( ).
+
+ENDFORM.

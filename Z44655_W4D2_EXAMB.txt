@@ -1,0 +1,370 @@
+*&---------------------------------------------------------------------*
+*& Report Z44655_W4D2_EXAMB
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT Z44655_W4D2_EXAMB.
+
+TABLES: LIKP,
+        LIPS.
+
+SELECT-OPTIONS: S_LFDAT FOR LIKP-LFDAT OBLIGATORY.
+PARAMETERS: P_VKORG TYPE LIKP-VKORG OBLIGATORY DEFAULT '1710'.
+SELECT-OPTIONS: S_LFART FOR LIKP-LFART,
+                S_KUNNR FOR LIKP-KUNNR.
+
+TYPES: BEGIN OF TS_OUTPUT,
+         VKORG      TYPE LIKP-VKORG,
+         VTEXT      TYPE TVKOT-VTEXT,
+         MATNR      TYPE LIPS-MATNR,
+         ARKTX      TYPE LIPS-ARKTX,
+         QTY23      TYPE LIPS-LFIMG,
+         QTY22      TYPE LIPS-LFIMG,
+         QTY21      TYPE LIPS-LFIMG,
+         QTY20      TYPE LIPS-LFIMG,
+         QTY_T      TYPE LIPS-LFIMG,
+         VRKME      TYPE LIPS-VRKME,
+         CELL_COLOR TYPE LVC_T_SCOL,
+       END OF TS_OUTPUT.
+
+TYPES: BEGIN OF TS_TEMP,
+         VKORG TYPE LIKP-VKORG,
+         VTEXT TYPE TVKOT-VTEXT,
+         MATNR TYPE LIPS-MATNR,
+         ARKTX TYPE LIPS-ARKTX,
+         QTY23 TYPE LIPS-LFIMG,
+         QTY22 TYPE LIPS-LFIMG,
+         QTY21 TYPE LIPS-LFIMG,
+         QTY20 TYPE LIPS-LFIMG,
+         QTY_T TYPE LIPS-LFIMG,
+         VRKME TYPE LIPS-VRKME,
+       END OF TS_TEMP.
+
+TYPES: BEGIN OF TS_SDDOC,
+         VBELN TYPE LIPS-VBELN,
+         LFDAT TYPE LIKP-LFDAT,
+         VKORG TYPE LIKP-VKORG,
+         KUNNR TYPE LIKP-KUNNR,
+         POSNR TYPE LIPS-POSNR,
+         MATNR TYPE LIPS-MATNR,
+         ARKTX TYPE LIPS-ARKTX,
+         LFIMG TYPE LIPS-LFIMG,
+         VRKME TYPE LIPS-VRKME,
+         NAME1 TYPE KNA1-NAME1,
+       END OF TS_SDDOC.
+
+TYPES: TT_OUTPUT TYPE STANDARD TABLE OF TS_OUTPUT,
+       TT_TEMP   TYPE STANDARD TABLE OF TS_TEMP,
+       TT_SDDOC  TYPE STANDARD TABLE OF TS_SDDOC.
+
+DATA : GT_OUTPUT TYPE TT_OUTPUT,
+       GS_OUTPUT TYPE TS_OUTPUT,
+       GT_TEMP   TYPE TT_TEMP,
+       GS_TEMP   TYPE TS_TEMP,
+       GT_SDDOC  TYPE TT_SDDOC,
+       GS_SDDOC  TYPE TS_SDDOC.
+
+DATA LT_KNA1 TYPE STANDARD TABLE OF KNA1.
+DATA LS_KNA1 LIKE LINE OF LT_KNA1.
+
+INITIALIZATION.
+
+  PERFORM FRM_SET_DEFAULT_VALUE.
+
+AT SELECTION-SCREEN.
+
+  PERFORM FRM_CHECK_EXISTENCE USING P_VKORG.
+
+START-OF-SELECTION.
+
+  PERFORM FRM_GET_DATA.
+
+  PERFORM FRM_SHOW_ALV.
+
+*&---------------------------------------------------------------------*
+*& Form FRM_SET_DEFAULT_VALUE
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM FRM_SET_DEFAULT_VALUE.
+
+  DATA LS_LFDAT LIKE LINE OF S_LFDAT.
+  LS_LFDAT-SIGN   = 'I'.
+  LS_LFDAT-OPTION = 'BT'.
+  LS_LFDAT-LOW    = '20200101'.
+  LS_LFDAT-HIGH   = SY-DATUM.
+  APPEND LS_LFDAT TO S_LFDAT.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form FRM_CHECK_EXISTENCE
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*&      --> P_WERKS
+*&---------------------------------------------------------------------*
+FORM FRM_CHECK_EXISTENCE  USING    PV_VKORG.
+
+  DATA LV_VKORG TYPE LIKP-VKORG.
+  SELECT SINGLE VKORG
+    FROM TVKO
+    INTO LV_VKORG
+  WHERE VKORG = PV_VKORG.
+  IF SY-SUBRC <> 0.
+    MESSAGE 'Plant not found!' TYPE 'E'.
+  ENDIF.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form FRM_GET_DATA
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*&
+*&
+*&---------------------------------------------------------------------*
+FORM FRM_GET_DATA.
+
+  SELECT *
+    FROM LIPS
+   INNER JOIN LIKP
+      ON LIPS~VBELN = LIKP~VBELN
+    INTO CORRESPONDING FIELDS OF TABLE GT_SDDOC
+   WHERE LIKP~LFDAT IN S_LFDAT
+     AND LIKP~VKORG = P_VKORG
+     AND LIKP~LFART IN S_LFART
+  AND LIKP~KUNNR IN S_KUNNR.
+  IF SY-SUBRC <> 0.
+    MESSAGE 'No data found!' TYPE 'E'.
+  ENDIF.
+
+  LOOP AT GT_SDDOC INTO GS_SDDOC.
+
+    CLEAR GS_TEMP.
+    MOVE-CORRESPONDING GS_SDDOC TO GS_TEMP.
+    CASE GS_SDDOC-LFDAT+0(4).
+      WHEN '2023'.
+        GS_TEMP-QTY23 = GS_SDDOC-LFIMG.
+      WHEN '2022'.
+        GS_TEMP-QTY22 = GS_SDDOC-LFIMG.
+      WHEN '2021'.
+        GS_TEMP-QTY21 = GS_SDDOC-LFIMG.
+      WHEN '2020'.
+        GS_TEMP-QTY20 = GS_SDDOC-LFIMG.
+      WHEN OTHERS.
+    ENDCASE.
+
+    GS_TEMP-QTY_T = GS_SDDOC-LFIMG.
+
+    COLLECT GS_TEMP INTO GT_TEMP.
+  ENDLOOP.
+
+  DATA LT_TVKOT TYPE STANDARD TABLE OF TVKOT.
+  SELECT *
+    FROM TVKOT
+    INTO CORRESPONDING FIELDS OF TABLE LT_TVKOT
+     FOR ALL ENTRIES IN GT_TEMP
+   WHERE TVKOT~VKORG = GT_TEMP-VKORG
+  AND TVKOT~SPRAS = SY-LANGU.
+  IF SY-SUBRC = 0.
+    SORT LT_TVKOT BY VKORG.
+  ENDIF.
+
+  DATA LS_TVKOT LIKE LINE OF LT_TVKOT.
+  DATA LS_CELL_COLOR TYPE LVC_S_SCOL.
+
+  LOOP AT GT_TEMP INTO GS_TEMP.
+    CLEAR GS_OUTPUT.
+    MOVE-CORRESPONDING GS_TEMP TO GS_OUTPUT.
+    READ TABLE LT_TVKOT INTO LS_TVKOT WITH KEY VKORG = GS_TEMP-VKORG
+                                      BINARY SEARCH.
+    IF SY-SUBRC = 0.
+      GS_OUTPUT-VTEXT = LS_TVKOT-VTEXT.
+      CLEAR LS_TVKOT.
+    ENDIF.
+
+
+    IF GS_OUTPUT-QTY23 < 10.
+      CLEAR: LS_CELL_COLOR.
+      LS_CELL_COLOR-FNAME = 'QTY23'.
+      LS_CELL_COLOR-COLOR-COL = '6'.
+      APPEND LS_CELL_COLOR TO GS_OUTPUT-CELL_COLOR.
+    ENDIF.
+
+    IF GS_OUTPUT-QTY22 < 10.
+      CLEAR: LS_CELL_COLOR.
+      LS_CELL_COLOR-FNAME = 'QTY22'.
+      LS_CELL_COLOR-COLOR-COL = '6'.
+      APPEND LS_CELL_COLOR TO GS_OUTPUT-CELL_COLOR.
+    ENDIF.
+
+    IF GS_OUTPUT-QTY21 < 10.
+      CLEAR: LS_CELL_COLOR.
+      LS_CELL_COLOR-FNAME = 'QTY21'.
+      LS_CELL_COLOR-COLOR-COL = '6'.
+      APPEND LS_CELL_COLOR TO GS_OUTPUT-CELL_COLOR.
+    ENDIF.
+
+    IF GS_OUTPUT-QTY20 < 10.
+      CLEAR: LS_CELL_COLOR.
+      LS_CELL_COLOR-FNAME = 'QTY20'.
+      LS_CELL_COLOR-COLOR-COL = '6'.
+      APPEND LS_CELL_COLOR TO GS_OUTPUT-CELL_COLOR.
+    ENDIF.
+
+    APPEND GS_OUTPUT TO GT_OUTPUT.
+
+  ENDLOOP.
+
+  SELECT *
+    FROM KNA1
+    INTO CORRESPONDING FIELDS OF TABLE LT_KNA1
+     FOR ALL ENTRIES IN GT_SDDOC
+  WHERE KNA1~KUNNR = GT_SDDOC-KUNNR.
+  IF SY-SUBRC = 0.
+    SORT LT_KNA1.
+  ENDIF.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form frm_show_alv
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM FRM_SHOW_ALV .
+
+  DATA: LT_FCAT TYPE LVC_T_FCAT.
+
+  DATA LS_LAYOUT TYPE LVC_S_LAYO.
+  LS_LAYOUT-CWIDTH_OPT = 'X'.
+  LS_LAYOUT-ZEBRA = 'X'.
+  LS_LAYOUT-CTAB_FNAME = 'CELL_COLOR'.
+
+  APPEND VALUE #( FIELDNAME = 'VKORG' REF_FIELD = 'VKORG' REF_TABLE = 'LIKP')                                                  TO LT_FCAT.
+  APPEND VALUE #( FIELDNAME = 'VTEXT' REF_FIELD = 'VTEXT' REF_TABLE = 'TVKOT')                                                 TO LT_FCAT.
+  APPEND VALUE #( FIELDNAME = 'MATNR' REF_FIELD = 'MATNR' REF_TABLE = 'LIPS')                                                  TO LT_FCAT.
+  APPEND VALUE #( FIELDNAME = 'ARKTX' REF_FIELD = 'ARKTX' REF_TABLE = 'LIPS')                                                  TO LT_FCAT.
+  APPEND VALUE #( FIELDNAME = 'QTY23' COLTEXT = 'Quantity 2023' REF_FIELD = 'LFIMG' REF_TABLE = 'LIPS' )                       TO LT_FCAT.
+  APPEND VALUE #( FIELDNAME = 'QTY22' COLTEXT = 'Quantity 2022' REF_FIELD = 'LFIMG' REF_TABLE = 'LIPS' )                       TO LT_FCAT.
+  APPEND VALUE #( FIELDNAME = 'QTY21' COLTEXT = 'Quantity 2021' REF_FIELD = 'LFIMG' REF_TABLE = 'LIPS' )                       TO LT_FCAT.
+  APPEND VALUE #( FIELDNAME = 'QTY20' COLTEXT = 'Quantity 2020' REF_FIELD = 'LFIMG' REF_TABLE = 'LIPS' )                       TO LT_FCAT.
+  APPEND VALUE #( FIELDNAME = 'QTY_T' COLTEXT = 'Quantity Total' REF_FIELD = 'LFIMG' REF_TABLE = 'LIPS' )                      TO LT_FCAT.
+  APPEND VALUE #( FIELDNAME = 'VRKME' REF_FIELD = 'VRKME' REF_TABLE = 'LIPS' )                                                 TO LT_FCAT.
+
+  DATA LS_FCAT LIKE LINE OF LT_FCAT.
+  LOOP AT LT_FCAT INTO LS_FCAT.
+
+    CASE LS_FCAT-FIELDNAME.
+      WHEN 'MATNR'.
+        LS_FCAT-HOTSPOT = 'X'.
+      WHEN OTHERS.
+    ENDCASE.
+
+    MODIFY LT_FCAT FROM LS_FCAT.
+  ENDLOOP.
+
+  DATA LT_EVENTS TYPE SLIS_T_EVENT.
+  DATA LS_EVENTS LIKE LINE OF LT_EVENTS.
+
+  LS_EVENTS-NAME = SLIS_EV_USER_COMMAND.
+  LS_EVENTS-FORM = 'FRM_USER_COMMAND'.
+
+  APPEND LS_EVENTS TO LT_EVENTS.
+
+  CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY_LVC'
+    EXPORTING
+      I_CALLBACK_PROGRAM = SY-REPID
+      I_GRID_TITLE       = 'Sales Delivery Information for [Sean Akbar Ryanto]'
+      IS_LAYOUT_LVC      = LS_LAYOUT
+      IT_FIELDCAT_LVC    = LT_FCAT
+      I_DEFAULT          = 'X'
+      I_SAVE             = 'A'
+      IT_EVENTS          = LT_EVENTS
+    TABLES
+      T_OUTTAB           = GT_OUTPUT
+    EXCEPTIONS
+      PROGRAM_ERROR      = 1
+      OTHERS             = 2.
+
+  IF SY-SUBRC <> 0.
+    MESSAGE ID SY-MSGID
+       TYPE SY-MSGTY
+     NUMBER SY-MSGNO
+       WITH SY-MSGV1 SY-MSGV2 SY-MSGV3 SY-MSGV4.
+  ENDIF.
+
+ENDFORM.
+
+FORM FRM_USER_COMMAND USING PV_UCOMM       LIKE SY-UCOMM
+                            PS_FIELD_INFO  TYPE SLIS_SELFIELD.
+
+  CASE PV_UCOMM.
+    WHEN '&IC1'.
+      IF PS_FIELD_INFO-SEL_TAB_FIELD = '1-MATNR'.
+        SET PARAMETER ID 'MAT' FIELD PS_FIELD_INFO-VALUE.
+        CALL TRANSACTION 'MM03' AND SKIP FIRST SCREEN.
+      ELSE.
+        DATA LT_OUTPUT2 TYPE TT_SDDOC.
+        READ TABLE GT_OUTPUT INTO GS_OUTPUT INDEX PS_FIELD_INFO-TABINDEX.
+        IF SY-SUBRC <> 0.
+          RETURN.
+        ENDIF.
+
+        LOOP AT GT_SDDOC INTO GS_SDDOC WHERE VKORG = GS_OUTPUT-VKORG
+                                         AND MATNR = GS_OUTPUT-MATNR.
+
+          READ TABLE LT_KNA1 INTO LS_KNA1 WITH KEY KUNNR = GS_SDDOC-KUNNR BINARY SEARCH.
+          IF SY-SUBRC = 0.
+            GS_SDDOC-NAME1 = LS_KNA1-NAME1.
+          ENDIF.
+
+          APPEND GS_SDDOC TO LT_OUTPUT2.
+
+        ENDLOOP.
+
+        DATA: LT_FCAT TYPE LVC_T_FCAT.
+        DATA LS_LAYOUT TYPE LVC_S_LAYO.
+        LS_LAYOUT-CWIDTH_OPT = ABAP_TRUE.
+        LS_LAYOUT-ZEBRA      = ABAP_TRUE.
+
+        DATA LS_CELL_COLOR TYPE LVC_S_SCOL.
+        DATA LT_EVENTS TYPE SLIS_T_EVENT.
+        DATA LS_EVENT LIKE LINE OF LT_EVENTS.
+
+        APPEND VALUE #( FIELDNAME = 'VBELN' REF_FIELD = 'VBELN' REF_TABLE = 'LIPS' )                   TO LT_FCAT.
+        APPEND VALUE #( FIELDNAME = 'LFDAT' REF_FIELD = 'LFDAT' REF_TABLE = 'LIKP' )                   TO LT_FCAT.
+        APPEND VALUE #( FIELDNAME = 'VKORG' REF_FIELD = 'VKORG' REF_TABLE = 'LIKP' )                   TO LT_FCAT.
+        APPEND VALUE #( FIELDNAME = 'KUNNR' REF_FIELD = 'KUNNR' REF_TABLE = 'LIKP' )                   TO LT_FCAT.
+        APPEND VALUE #( FIELDNAME = 'POSNR' REF_FIELD = 'POSNR' REF_TABLE = 'LIPS' )                   TO LT_FCAT.
+        APPEND VALUE #( FIELDNAME = 'MATNR' REF_FIELD = 'MATNR' REF_TABLE = 'LIPS' )                   TO LT_FCAT.
+        APPEND VALUE #( FIELDNAME = 'ARKTX' REF_FIELD = 'ARKTX' REF_TABLE = 'LIPS' )                   TO LT_FCAT.
+        APPEND VALUE #( FIELDNAME = 'LFIMG' REF_FIELD = 'LFIMG' REF_TABLE = 'LIPS' )                   TO LT_FCAT.
+        APPEND VALUE #( FIELDNAME = 'VRKME' REF_FIELD = 'VRKME' REF_TABLE = 'LIPS' )                   TO LT_FCAT.
+        APPEND VALUE #( FIELDNAME = 'NAME1' REF_FIELD = 'NAME1' REF_TABLE = 'KNA1' )                   TO LT_FCAT.
+
+        CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY_LVC'
+          EXPORTING
+            I_GRID_TITLE    = 'Sales Delivery Details'
+            IT_FIELDCAT_LVC = LT_FCAT
+            IS_LAYOUT_LVC   = LS_LAYOUT
+          TABLES
+            T_OUTTAB        = LT_OUTPUT2
+          EXCEPTIONS
+            PROGRAM_ERROR   = 1
+            OTHERS          = 2.
+        IF SY-SUBRC <> 0.
+          MESSAGE ID SY-MSGID
+                TYPE SY-MSGTY
+              NUMBER SY-MSGNO
+                WITH SY-MSGV1 SY-MSGV2 SY-MSGV3 SY-MSGV4.
+        ENDIF.
+      ENDIF.
+    WHEN OTHERS.
+  ENDCASE.
+ENDFORM.

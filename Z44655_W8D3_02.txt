@@ -1,0 +1,36 @@
+*&---------------------------------------------------------------------*
+*& Report Z44655_W8D3_02
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT Z44655_W8D3_02.
+
+CLASS LCL_PROG DEFINITION
+  INHERITING FROM /ZHD/CL_HREPORT
+  CREATE PRIVATE.
+
+  PUBLIC SECTION.
+  CLASS-METHODS PUSH_VIEW.
+
+ENDCLASS.
+
+CLASS LCL_PROG IMPLEMENTATION.
+
+  METHOD PUSH_VIEW.
+
+    CHECK NOT IS_SCREEN_EXISTS( PROGRAM = SY-REPID ).
+
+    DATA LO_VIEW TYPE REF TO /ZHD/IF_HSCREEN.
+    CASE SY-DYNNR.
+      WHEN '1000'.
+        DATA(LV_CLASS_NAME) = 'LCL_PROG'.
+      WHEN OTHERS.
+    ENDCASE.
+
+   CREATE OBJECT LO_VIEW TYPE (LV_CLASS_NAME).
+
+  ENDMETHOD.
+
+ENDCLASS.
+
+INCLUDE /ZHD/HSCREEN_EVENT_INC.

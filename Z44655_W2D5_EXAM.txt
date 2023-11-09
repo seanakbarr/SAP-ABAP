@@ -1,0 +1,157 @@
+*&---------------------------------------------------------------------*
+*& Report Z44655_W2D5_EXAM
+*&---------------------------------------------------------------------*
+*& 44655 Sean Akbar Ryanto
+*&---------------------------------------------------------------------*
+REPORT z44655_w2d5_exam.
+
+TABLES: ekko, ekpo. " lfa1, makt.
+
+TYPES: BEGIN OF ts_report,
+         ebeln TYPE ekko-ebeln,             " Purchasing Document
+         ebelp TYPE ekpo-ebelp,             " Item
+         ekorg TYPE ekko-ekorg,             " Purchasing organization
+         lifnr TYPE ekko-lifnr,             " Vendor
+         name1 TYPE lfa1-name1,             " Vendor Name
+         werks TYPE ekpo-werks,             " Plant
+         matnr TYPE ekpo-matnr,             " Material Number
+         maktx TYPE makt-maktx,             " Material Description
+         menge TYPE ekpo-menge,             " Quantity
+         meins TYPE ekpo-meins,             " Order Unit
+         netwr TYPE ekpo-netwr,             " Net Order Value
+         waers TYPE ekko-waers,             " Currency
+       END OF ts_report.
+
+TYPES tt_report TYPE STANDARD TABLE OF ts_report.
+DATA gt_report TYPE tt_report.
+DATA gs_report LIKE LINE OF gt_report.
+
+PARAMETERS: p_plant TYPE ekpo-werks OBLIGATORY.
+SELECT-OPTIONS: s_purorg FOR ekko-ekorg DEFAULT 1710.
+SELECT-OPTIONS: s_purdoc FOR ekko-ebeln.
+SELECT-OPTIONS: s_matnum FOR ekpo-matnr.
+
+DATA gs_matnum LIKE LINE OF s_matnum.
+
+INITIALIZATION.
+  CASE sy-uname.
+    WHEN '44655'.
+      gs_matnum-low = '1710'.
+      APPEND gs_matnum TO s_matnum.
+    WHEN OTHERS.
+      gs_matnum-low = '1710'.
+      APPEND gs_matnum TO s_matnum.
+  ENDCASE.
+
+AT SELECTION-SCREEN.
+  CASE p_plant.
+    WHEN '1710'.
+      MESSAGE 'Show the report' TYPE 'I' DISPLAY LIKE 'S'.
+    WHEN '1720'.
+      MESSAGE 'Show the report' TYPE 'I' DISPLAY LIKE 'S'.
+    WHEN '2021'.
+      MESSAGE 'Show the report' TYPE 'I' DISPLAY LIKE 'S'.
+    WHEN '4000'.
+      MESSAGE 'Show the report' TYPE 'I' DISPLAY LIKE 'S'.
+    WHEN 'C100'.
+      MESSAGE 'Show the report' TYPE 'I' DISPLAY LIKE 'S'.
+    WHEN 'JL01'.
+      MESSAGE 'Show the report' TYPE 'I' DISPLAY LIKE 'S'.
+    WHEN 'LN01'.
+      MESSAGE 'Show the report' TYPE 'I' DISPLAY LIKE 'S'.
+    WHEN 'P001'.
+      MESSAGE 'Show the report' TYPE 'I' DISPLAY LIKE 'S'.
+    WHEN OTHERS.
+      MESSAGE 'Sorry, Fill with the correct' TYPE 'I' DISPLAY LIKE 'W'.
+  ENDCASE.
+
+START-OF-SELECTION.
+  SELECT *
+    INTO CORRESPONDING FIELDS OF TABLE gt_report
+    FROM ekpo
+    INNER JOIN ekko
+    ON ( ekpo~ebeln = ekko~ebeln )
+    INNER JOIN lfa1
+    ON ( ekko~lifnr = lfa1~lifnr )
+    INNER JOIN makt
+    ON ( makt~matnr = ekpo~matnr )
+    WHERE ekpo~werks = p_plant
+    AND ekko~ekorg IN s_purorg
+    AND ekko~ebeln IN s_purdoc
+    AND ekpo~matnr IN s_purdoc.
+
+  DATA gt_fcat TYPE lvc_t_fcat.
+  DATA gs_fcat LIKE LINE OF gt_fcat.
+
+  CLEAR gs_fcat.
+  gs_fcat-fieldname = 'ebeln'.
+  gs_fcat-coltext = 'Purch.Doc'.
+  APPEND gs_fcat TO gt_fcat.
+
+  CLEAR gs_fcat.
+  gs_fcat-fieldname = 'ebelp'.
+  gs_fcat-coltext = 'Item'.
+  APPEND gs_fcat TO gt_fcat.
+
+  CLEAR gs_fcat.
+  gs_fcat-fieldname = 'ekorg'.
+  gs_fcat-coltext = 'Purchasing org.'.
+  APPEND gs_fcat TO gt_fcat.
+
+  CLEAR gs_fcat.
+  gs_fcat-fieldname = 'lifnr'.
+  gs_fcat-coltext = 'Vendor'.
+  APPEND gs_fcat TO gt_fcat.
+
+  CLEAR gs_fcat.
+  gs_fcat-fieldname = 'name1'.
+  gs_fcat-coltext = 'Vendor Name'.
+  APPEND gs_fcat TO gt_fcat.
+
+  CLEAR gs_fcat.
+  gs_fcat-fieldname = 'werks'.
+  gs_fcat-coltext = 'Plant'.
+  APPEND gs_fcat TO gt_fcat.
+
+  CLEAR gs_fcat.
+  gs_fcat-fieldname = 'matnr'.
+  gs_fcat-coltext = 'Material Number'.
+  APPEND gs_fcat TO gt_fcat.
+
+  CLEAR gs_fcat.
+  gs_fcat-fieldname = 'maktx'.
+  gs_fcat-coltext = 'Material Description '.
+  APPEND gs_fcat TO gt_fcat.
+
+  CLEAR gs_fcat.
+  gs_fcat-fieldname = 'menge'.
+  gs_fcat-coltext = 'Quantity'.
+  APPEND gs_fcat TO gt_fcat.
+
+  CLEAR gs_fcat.
+  gs_fcat-fieldname = 'meins'.
+  gs_fcat-coltext = 'Order Unit'.
+  APPEND gs_fcat TO gt_fcat.
+
+  CLEAR gs_fcat.
+  gs_fcat-fieldname = 'netwr'.
+  gs_fcat-coltext = 'Net Order Value '.
+  APPEND gs_fcat TO gt_fcat.
+
+  CLEAR gs_fcat.
+  gs_fcat-fieldname = 'waers'.
+  gs_fcat-coltext = 'Currency'.
+  APPEND gs_fcat TO gt_fcat.
+
+  CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY_LVC'
+    EXPORTING
+      it_fieldcat_lvc = gt_fcat
+    TABLES
+      t_outtab        = gt_report
+    EXCEPTIONS
+      program_error   = 1
+      OTHERS          = 2.
+  .
+  IF sy-subrc <> 0.
+* Implement suitable error handling here
+  ENDIF.

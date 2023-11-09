@@ -1,0 +1,22 @@
+*&---------------------------------------------------------------------*
+*& Report Z44655_W7D3_02
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT Z44655_W7D3_02.
+
+PARAMETERS P_X TYPE I DEFAULT 1.
+PARAMETERS P_Y TYPE I DEFAULT 1.
+
+DATA GT_SCARR TYPE STANDARD TABLE OF SCARR.
+SELECT * FROM SCARR INTO TABLE GT_SCARR.
+
+FIELD-SYMBOLS <CELL> TYPE ANY.
+
+READ TABLE GT_SCARR ASSIGNING FIELD-SYMBOL(<GS_SCARR>) INDEX P_X.
+  IF <GS_SCARR> IS ASSIGNED.
+    ASSIGN COMPONENT 2 of STRUCTURE <GS_SCARR> TO <CELL>.
+    IF <CELL> IS ASSIGNED.
+      WRITE <CELL>.
+    ENDIF.
+  ENDIF.

@@ -1,0 +1,430 @@
+*&---------------------------------------------------------------------*
+*& Report Z44655_W3D3_02
+*&---------------------------------------------------------------------*
+*& Purchase Order Receiving Information for Sean Akbar Ryanto
+*&---------------------------------------------------------------------*
+REPORT Z44655_W2D5A2_EXAM.
+
+TABLES: EKKO,
+        EKPO,
+        LFA1,
+        MAKT,
+        EKBE,
+        RSEG.
+
+PARAMETERS: P_WERKS TYPE EKPO-WERKS OBLIGATORY.                     " Plant "
+SELECT-OPTIONS: S_EKORG FOR EKKO-EKORG DEFAULT '1710',              " Purchasing org. "
+                S_EBELN FOR EKKO-EBELN,                             " Purchasing Document "
+                S_MATNR FOR EKPO-MATNR.                             " Material Number "
+
+TYPES: TS_PO TYPE ZSTEST001_44655.
+TYPES: TT_PO TYPE STANDARD TABLE OF TS_PO.
+
+DATA:GT_PO TYPE TT_PO.
+
+INITIALIZATION.
+
+  PERFORM FRM_SET_DEFAULT_VALUE.
+
+AT SELECTION-SCREEN.
+
+  PERFORM FRM_CHECK_EXISTENCE USING P_WERKS.
+
+START-OF-SELECTION.
+
+  PERFORM FRM_GET_DATA CHANGING GT_PO.
+
+  PERFORM FRM_SHOW_ALV.
+
+*&---------------------------------------------------------------------*
+*& Form FRM_SET_DEFAULT_VALUE
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+
+FORM FRM_SET_DEFAULT_VALUE .
+
+  DATA LS_EBELN LIKE LINE OF S_EBELN.
+  P_WERKS = '1710'.
+  LS_EBELN-SIGN   = ''.
+  LS_EBELN-OPTION = ''.
+  LS_EBELN-LOW    = '4500000107'.
+  LS_EBELN-HIGH   = ''.
+  APPEND LS_EBELN TO S_EBELN.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form FRM_CHECK_EXISTENCE
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*&      --> P_WERKS
+*&---------------------------------------------------------------------*
+
+FORM FRM_CHECK_EXISTENCE  USING    PV_WERKS.
+
+  DATA LV_WERKS TYPE EKPO-WERKS.
+  SELECT SINGLE WERKS
+    FROM T001W
+    INTO LV_WERKS
+   WHERE WERKS = PV_WERKS.
+  IF SY-SUBRC <> 0.
+    MESSAGE 'Plant not found!' TYPE 'E'.
+  ENDIF.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form FRM_GET_DATA
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM FRM_GET_DATA CHANGING CT_PO TYPE TT_PO.
+
+  " Inner join EKKO and EKPO database table into CT_PO Internal Table  "
+  SELECT *
+    FROM EKKO
+   INNER JOIN EKPO
+      ON EKKO~EBELN = EKPO~EBELN
+    INTO CORRESPONDING FIELDS OF TABLE CT_PO
+   WHERE EKPO~WERKS = P_WERKS
+     AND EKKO~EKORG IN S_EKORG
+     AND EKKO~EBELN IN S_EBELN
+     AND EKPO~MATNR IN S_MATNR.
+  IF SY-SUBRC <> 0.
+    MESSAGE 'No data found!' TYPE 'E'.
+  ENDIF.
+
+  " Inner join LFA1 database table and CT_PO internal table into LT_LFA1 internal table"
+  DATA LT_LFA1 TYPE STANDARD TABLE OF LFA1.
+  SELECT *
+    FROM LFA1
+    INTO CORRESPONDING FIELDS OF TABLE LT_LFA1
+     FOR ALL ENTRIES IN CT_PO
+   WHERE LFA1~LIFNR = CT_PO-LIFNR.
+  IF SY-SUBRC = 0.
+    SORT LT_LFA1.
+  ENDIF.
+
+  " Inner join MAKT database table and CT_PO internal table into LT_MAKT internal table"
+  DATA LT_MAKT TYPE STANDARD TABLE OF MAKT.
+  SELECT *
+    FROM MAKT
+    INTO CORRESPONDING FIELDS OF TABLE LT_MAKT
+     FOR ALL ENTRIES IN CT_PO
+   WHERE MAKT~MATNR = CT_PO-MATNR
+     AND MAKT~SPRAS = SY-LANGU.
+  IF SY-SUBRC = 0.
+    SORT LT_MAKT.
+  ENDIF.
+
+  " Inner join EKBE database table and CT_PO internal table into LT_EKBE internal table"
+  DATA LT_EKBE TYPE STANDARD TABLE OF EKBE.
+  SELECT *
+    FROM EKBE
+    INTO CORRESPONDING FIELDS OF TABLE LT_EKBE
+     FOR ALL ENTRIES IN CT_PO
+   WHERE EKBE~EBELN = CT_PO-EBELN
+     AND EKBE~EBELP = CT_PO-EBELP
+     AND EKBE~BEWTP = 'E'.
+  IF SY-SUBRC = 0.
+
+  ENDIF.
+
+  " Inner join RSEG database table and CT_PO internal table into LT_RSEG internal table"
+  DATA LT_RSEG TYPE STANDARD TABLE OF RSEG.
+  SELECT *
+    FROM RSEG
+    INTO CORRESPONDING FIELDS OF TABLE LT_RSEG
+     FOR ALL ENTRIES IN CT_PO
+   WHERE RSEG~EBELP = CT_PO-EBELP
+     AND RSEG~EBELN = CT_PO-EBELN.
+  IF SY-SUBRC = 0.
+
+  ENDIF.
+
+  " Define LS_PO local Structure with Type Structure TS_PO data type"
+  DATA LS_PO TYPE TS_PO.
+
+  " Define LS_LFA1 local structure that looks like Internal Table LT_LFA1 "
+  DATA LS_LFA1 LIKE LINE OF LT_LFA1.
+
+  " Define LS_MAKT local structure that looks like Internal Table LT_MAKT "
+  DATA LS_MAKT LIKE LINE OF LT_MAKT.
+
+  " Define LS_EKBE local structure that looks like Internal Table LT_EKBE "
+  DATA LS_EKBE LIKE LINE OF LT_EKBE.
+
+  " Define LS_RSEG local structure that looks like Internal Table LT_RSEG "
+  DATA LS_RSEG LIKE LINE OF LT_RSEG.
+
+  " Define LS_CELL_COLOR with LVC_S_COL data type to give a colour in data column/row based on column name"
+  DATA LS_CELL_COLOR TYPE LVC_S_SCOL.
+
+  " Define LS_CELL_STYLE with LVC_S_STYL data type to give an edit acces only for one data in the table "
+  DATA LS_CELL_STYLE TYPE LVC_S_STYL.
+
+
+  LOOP AT CT_PO INTO LS_PO.
+
+    " Define LV_TabiX as SY-TABIX
+    DATA(LV_TABIX) = SY-TABIX.
+
+    READ TABLE LT_LFA1 INTO LS_LFA1 WITH KEY LIFNR = LS_PO-LIFNR
+                                    BINARY SEARCH.
+    IF SY-SUBRC = 0.
+      LS_PO-NAME1 = LS_LFA1-NAME1.
+      CLEAR LS_LFA1.
+    ENDIF.
+
+    READ TABLE LT_MAKT INTO LS_MAKT WITH KEY MATNR = LS_PO-MATNR
+                                    BINARY SEARCH.
+    IF SY-SUBRC = 0.
+      LS_PO-MAKTX = LS_MAKT-MAKTX.
+      CLEAR LS_MAKT.
+    ENDIF.
+
+    LOOP AT LT_EKBE INTO LS_EKBE WHERE EBELN = LS_PO-EBELN
+                                   AND EBELP = LS_PO-EBELP.
+
+      IF LS_EKBE-SHKZG = 'S'.
+        LS_PO-BPMNG += LS_EKBE-BPMNG.
+        LS_PO-WRBTR += LS_EKBE-BPMNG.
+      ELSE.
+        LS_PO-BPMNG -= LS_EKBE-BPMNG.
+        LS_PO-WRBTR -= LS_EKBE-WRBTR.
+      ENDIF.
+      CLEAR LS_EKBE.
+
+    ENDLOOP.
+
+    LOOP AT LT_RSEG INTO LS_RSEG WHERE EBELN = LS_PO-EBELN
+                                   AND EBELP = LS_PO-EBELP.
+
+      IF LS_RSEG-SHKZG = 'S'.
+        LS_PO-BPMNG_1 += LS_RSEG-BPMNG.
+        LS_PO-WRBTR_1 += LS_RSEG-BPMNG.
+      ELSE.
+        LS_PO-BPMNG_1 -= LS_RSEG-BPMNG.
+        LS_PO-WRBTR_1 -= LS_RSEG-WRBTR.
+      ENDIF.
+      CLEAR LS_RSEG.
+
+    ENDLOOP.
+
+    " LVC Style "
+    CLEAR: LS_CELL_STYLE.
+    LS_CELL_STYLE-FIELDNAME = 'MEINS'.
+    LS_CELL_STYLE-STYLE = CL_GUI_ALV_GRID=>MC_STYLE_ENABLED.
+
+    APPEND LS_CELL_STYLE TO LS_PO-CELL_STYLE.
+
+
+    " Icon for every row data "
+    LS_PO-ZICON = '@1C@'.
+
+    MODIFY CT_PO FROM LS_PO.
+
+  ENDLOOP.
+
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form frm_show_alv
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM FRM_SHOW_ALV .
+
+  DATA LT_FCAT TYPE LVC_T_FCAT.
+
+  APPEND VALUE #( fieldname = 'EBELN' coltext = 'Purch.Doc.' )           TO lt_fcat.
+  APPEND VALUE #( fieldname = 'EBELP' coltext = 'Item' )                 TO lt_fcat.
+  APPEND VALUE #( fieldname = 'EKORG' coltext = 'Item	Purchasing org.' ) TO lt_fcat.
+  APPEND VALUE #( fieldname = 'LIFNR' coltext = 'Vendor' )               TO lt_fcat.
+  APPEND VALUE #( fieldname = 'NAME1' coltext = 'Vendor Name' )          TO lt_fcat.
+  APPEND VALUE #( fieldname = 'WERKS' coltext = 'Plant' )                TO lt_fcat.
+  APPEND VALUE #( fieldname = 'MATNR' coltext = 'Material Number' )      TO lt_fcat.
+  APPEND VALUE #( fieldname = 'MAKTX' coltext = 'Material description' ) TO lt_fcat.
+  APPEND VALUE #( fieldname = 'MENGE' coltext = 'Quantity' )             TO lt_fcat.
+  APPEND VALUE #( fieldname = 'MEINS' coltext = 'Order Unit' )           TO lt_fcat.
+  APPEND VALUE #( fieldname = 'NETWR' coltext = 'Net Order Value' )      TO lt_fcat.
+  APPEND VALUE #( fieldname = 'WAERS' coltext = 'Currency' )             TO lt_fcat.
+  APPEND VALUE #( fieldname = 'BPMNG' coltext = 'Received Qty.' )        TO lt_fcat.
+  APPEND VALUE #( fieldname = 'WRBTR' coltext = 'Received Value' )       TO lt_fcat.
+  APPEND VALUE #( fieldname = 'BPMNG_1' coltext = 'Invoiced Qty' )       TO lt_fcat.
+  APPEND VALUE #( fieldname = 'WRBTR_1' coltext = 'Invoiced Value' )       TO lt_fcat.
+
+  CALL FUNCTION 'LVC_FIELDCATALOG_MERGE'
+    EXPORTING
+      I_STRUCTURE_NAME       = 'ZSTEST001_44655'
+    CHANGING
+      CT_FIELDCAT            = LT_FCAT
+    EXCEPTIONS
+      INCONSISTENT_INTERFACE = 1
+      PROGRAM_ERROR          = 2
+      OTHERS                 = 3.
+  IF SY-SUBRC <> 0.
+* Implement suitable error handling here
+  ENDIF.
+
+  DATA LS_FCAT LIKE LINE OF LT_FCAT.
+  LOOP AT LT_FCAT INTO LS_FCAT.
+
+    CASE LS_FCAT-FIELDNAME.
+      " To give a checkbox and an access to edit checbox in Box Column "
+      WHEN 'BOX'.
+        LS_FCAT-EDIT = ABAP_TRUE.
+        LS_FCAT-CHECKBOX = ABAP_TRUE.
+      " To give a Hotspot affection to EBELN column for an interaction between user and the column "
+      WHEN 'EBELN'.
+        LS_FCAT-HOTSPOT = 'X'.
+        LS_FCAT-REF_TABLE = 'EKKO'.
+        LS_FCAT-REF_FIELD = 'EBELN'.
+      " To display an icon in every row data "
+      WHEN 'ZICON'.
+        LS_FCAT-ICON = ABAP_TRUE.
+      " To give an access to edit "
+      WHEN 'WAERS'.
+        LS_FCAT-EDIT = ABAP_TRUE.
+      WHEN OTHERS.
+    ENDCASE.
+
+    MODIFY LT_FCAT FROM LS_FCAT.
+  ENDLOOP.
+
+  DATA LS_LAYOUT TYPE LVC_S_LAYO.
+  LS_LAYOUT-CWIDTH_OPT = 'X'.
+  LS_LAYOUT-ZEBRA = 'X'.
+  LS_LAYOUT-CTAB_FNAME = 'CELL_COLOR'.
+  LS_LAYOUT-STYLEFNAME = 'CELL_STYLE'.
+
+  " Define a variable to give an event at ALV
+  DATA LT_EVENTS TYPE SLIS_T_EVENT.
+  DATA LS_EVENTS LIKE LINE OF LT_EVENTS.
+
+  LS_EVENTS-NAME = SLIS_EV_PF_STATUS_SET.
+  LS_EVENTS-FORM = 'FRM_SET_PF_STATUS'.
+
+  APPEND LS_EVENTS TO LT_EVENTS.
+
+  LS_EVENTS-NAME = SLIS_EV_USER_COMMAND.
+  LS_EVENTS-FORM = 'FRM_USER_COMMAND'.
+
+  APPEND LS_EVENTS TO LT_EVENTS.
+
+  LS_EVENTS-NAME = SLIS_EV_DATA_CHANGED.
+  LS_EVENTS-FORM ='FRM_DATA_CHANGED'.
+
+  APPEND LS_EVENTS TO LT_EVENTS.
+
+  CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY_LVC'
+    EXPORTING
+      I_CALLBACK_PROGRAM = SY-REPID                                                           " System report ID
+      I_GRID_TITLE       = 'The assessment of week 1-ALV Report-Author: 44655 + Sean Akbar Ryanto'
+      IT_FIELDCAT_LVC    = LT_FCAT
+      IS_LAYOUT_LVC      = LS_LAYOUT
+      I_DEFAULT          = 'X'                   " To make a default variant display of ALV "
+      I_SAVE             = 'A'                   " To save the variant display of ALV that we change "
+      IT_EVENTS          = LT_EVENTS
+    TABLES
+      T_OUTTAB           = GT_PO
+    EXCEPTIONS
+      PROGRAM_ERROR      = 1
+      OTHERS             = 2.
+
+  IF SY-SUBRC <> 0.
+    MESSAGE ID SY-MSGID
+    TYPE       SY-MSGTY
+    NUMBER     SY-MSGNO.
+  ENDIF.
+
+ENDFORM.
+
+FORM FRM_SET_PF_STATUS USING PV_EXCL_TAB TYPE KKBLO_T_EXTAB.
+  SET PF-STATUS 'STANDARD_FULLSCREEN'.
+
+  DATA LO_GRID TYPE REF TO CL_GUI_ALV_GRID.
+  CALL FUNCTION 'GET_GLOBALS_FROM_SLVC_FULLSCR'
+    IMPORTING
+      E_GRID = LO_GRID.
+
+  LO_GRID->SET_READY_FOR_INPUT( 1 ).
+  LO_GRID->REGISTER_EDIT_EVENT( LO_GRID->MC_EVT_MODIFIED ).
+
+ENDFORM.
+
+FORM FRM_USER_COMMAND USING PV_UCOMM       LIKE SY-UCOMM
+                            PS_FIELD_INFO  TYPE SLIS_SELFIELD.
+
+  CASE PV_UCOMM.
+    WHEN 'ZPOPUP'.
+      MESSAGE 'This Icon doesn"t have an action yet' TYPE 'I'.
+    WHEN '&IC1'.
+      IF PS_FIELD_INFO-SEL_TAB_FIELD = '1-EBELN'.
+        SET PARAMETER ID 'BES' FIELD PS_FIELD_INFO-VALUE.
+        CALL TRANSACTION 'ME23N' AND SKIP FIRST SCREEN.
+      ENDIF.
+  ENDCASE.
+ENDFORM.
+
+FORM FRM_DATA_CHANGED USING PR_DATA_CHANGED TYPE REF TO CL_ALV_CHANGED_DATA_PROTOCOL.
+
+  DATA LS_MOD_CELLS LIKE LINE OF PR_DATA_CHANGED->MT_MOD_CELLS.
+
+  READ TABLE PR_DATA_CHANGED->MT_MOD_CELLS INTO LS_MOD_CELLS INDEX 1.
+
+  IF SY-SUBRC = 0 AND LS_MOD_CELLS-FIELDNAME = 'WAERS'.
+    DATA LS_PO LIKE LINE OF GT_PO.
+    DATA LS_CELL_COLOR TYPE LVC_S_SCOL.
+    READ TABLE GT_PO INDEX LS_MOD_CELLS-ROW_ID INTO LS_PO.
+
+    DATA LT_TR TYPE STANDARD TABLE OF ZTEXCHR_44667.
+    DATA LS_TR LIKE LINE OF LT_TR.
+
+    SELECT *
+      FROM ZTEXCHR_44667
+      INTO CORRESPONDING FIELDS OF TABLE LT_TR.
+
+    LOOP AT LT_TR INTO LS_TR WHERE UNAME  = SY-UNAME
+                               AND CURR_1 = LS_PO-WAERS
+                               AND CURR_2 = TO_UPPER( LS_MOD_CELLS-VALUE ).
+
+      IF SY-SUBRC = 0.
+        CASE LS_TR-SIGN.
+          WHEN '*'.
+            LS_PO-NETWR *= LS_TR-FACTOR.
+            LS_CELL_COLOR-FNAME = ''.
+            LS_CELL_COLOR-COLOR-COL = '5'.
+            LS_CELL_COLOR-COLOR-INT = '1'.
+            LS_CELL_COLOR-COLOR-INV = '0'.
+
+            LS_PO-ZICON = '@01@'.
+
+            APPEND LS_CELL_COLOR TO LS_PO-CELL_COLOR.
+          WHEN '/'.
+            CLEAR: LS_PO-CELL_COLOR.
+            LS_PO-NETWR /= LS_TR-FACTOR.
+          WHEN OTHERS.
+        ENDCASE.
+      ENDIF.
+
+      MODIFY GT_PO FROM LS_PO INDEX LS_MOD_CELLS-ROW_ID.
+    ENDLOOP.
+
+    DATA LO_GRID TYPE REF TO CL_GUI_ALV_GRID.
+    CALL FUNCTION 'GET_GLOBALS_FROM_SLVC_FULLSCR'
+      IMPORTING
+        E_GRID = LO_GRID.
+    LO_GRID->REFRESH_TABLE_DISPLAY( ).
+
+  ENDIF.
+ENDFORM.

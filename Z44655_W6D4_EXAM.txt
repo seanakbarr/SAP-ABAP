@@ -1,0 +1,233 @@
+*&---------------------------------------------------------------------*
+*& Report Z44655_W6D4_EXAM
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT Z44655_W6D4_EXAM.
+
+TYPES: BEGIN OF TS_MAIN,
+         USERNAME   TYPE SY-UNAME,
+         HEADER_TXT TYPE BKTXT,
+         COMP_CODE  TYPE BUKRS,
+         DOC_DATE   TYPE SY-DATUM,
+         PSTNG_DATE TYPE SY-DATUM,
+         TRANS_DATE TYPE SY-DATUM,
+         FISC_YEAR  TYPE GJAHR,
+         FIS_PERIOD TYPE MONAT,
+         CURRENCY   TYPE WAERS,
+         DOC_TYPE   TYPE BLART,
+         OBJ_KEY    TYPE AWKEY,
+       END OF TS_MAIN.
+
+DATA GS_MAIN TYPE TS_MAIN.
+
+TYPES: BEGIN OF TS_TAB,
+         ZBOX       TYPE XFELD,
+         ITEMNO_ACC TYPE POSNR_ACC,
+         GL_ACCOUNT TYPE HKONT,
+         ITEM_TEXT  TYPE SGTXT,
+         CURRENCY   TYPE WAERS,
+         SHKZG      TYPE SHKZG,
+         AMT_DOCCUR TYPE BAPIDOCCUR,
+       END OF TS_TAB.
+
+DATA GT_TAB TYPE STANDARD TABLE OF TS_TAB.
+DATA GS_TAB TYPE TS_TAB.
+
+DATA: GS_HEADER TYPE BAPIACHE09,
+      GT_ITEM   TYPE STANDARD TABLE OF BAPIACGL09,
+      GS_ITEM   TYPE BAPIACGL09,
+      GT_ITEM2  TYPE STANDARD TABLE OF BAPIACCR09,
+      GS_ITEM2  TYPE BAPIACCR09,
+      GT_RETURN TYPE STANDARD TABLE OF BAPIRET2,
+      GS_RETURN TYPE BAPIRET2,
+      GV_KEY    TYPE BAPIACHE09-OBJ_KEY,
+      GV_VRM_ID TYPE VRM_ID VALUE 'GS_TAB-SHKZG',
+      GT_VALUES TYPE VRM_VALUES.
+
+INITIALIZATION.
+  PERFORM INIT_9004.
+
+START-OF-SELECTION.
+  CALL SCREEN '9004'.
+
+*&---------------------------------------------------------------------*
+*& Module STATUS_9004 OUTPUT
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+MODULE STATUS_9004 OUTPUT.
+  CLEAR SY-UCOMM.
+  SET PF-STATUS SY-DYNNR.
+  SET TITLEBAR SY-DYNNR WITH 'Exam W6D4 Sean Akbar Ryanto'.
+ENDMODULE.
+*&---------------------------------------------------------------------*
+*&      Module  USER_COMMAND_9004  INPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE USER_COMMAND_9004 INPUT.
+  CASE SY-UCOMM.
+    WHEN '&ZSAVE'.
+      PERFORM POST_COMMIT.
+    WHEN '&ZNEW'.
+      CLEAR GS_MAIN-USERNAME.
+      CLEAR GS_MAIN-HEADER_TXT.
+      CLEAR GS_MAIN-COMP_CODE.
+      CLEAR GS_MAIN-FISC_YEAR.
+      CLEAR GS_MAIN-FIS_PERIOD.
+      CLEAR GS_MAIN-DOC_TYPE.
+      CLEAR GS_MAIN-OBJ_KEY.
+      CLEAR GS_MAIN-CURRENCY.
+      CLEAR GT_TAB.
+    WHEN OTHERS.
+  ENDCASE.
+ENDMODULE.
+*&---------------------------------------------------------------------*
+*&      Module  ON_EXIT_9004  INPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE ON_EXIT_9004 INPUT.
+  CASE SY-UCOMM.
+    WHEN '&ZBACK' OR '&ZEND'.
+      LEAVE TO SCREEN 0.
+    WHEN '&ZEXIT'.
+      LEAVE PROGRAM.
+    WHEN OTHERS.
+  ENDCASE.
+ENDMODULE.
+
+*&---------------------------------------------------------------------*
+*& Form INIT_9004
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM INIT_9004.
+
+  GS_MAIN-DOC_DATE   = SY-DATUM.
+  GS_MAIN-PSTNG_DATE = SY-DATUM.
+  GS_MAIN-TRANS_DATE = SY-DATUM.
+  GS_MAIN-USERNAME   = SY-UNAME.
+
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Module SET_ATTR OUTPUT
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+MODULE SET_ATTR OUTPUT.
+
+    IF GS_MAIN-OBJ_KEY IS NOT INITIAL.
+
+    LOOP AT SCREEN.
+      SCREEN-INPUT = 0.
+      MODIFY SCREEN.
+    ENDLOOP.
+
+  ENDIF.
+ENDMODULE.
+
+*&---------------------------------------------------------------------*
+*& Form POST_COMMIT
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM POST_COMMIT.
+
+      CLEAR GS_HEADER.
+      GS_HEADER-USERNAME   = GS_MAIN-USERNAME.
+      GS_HEADER-HEADER_TXT = GS_MAIN-HEADER_TXT.
+      GS_HEADER-COMP_CODE  = GS_MAIN-COMP_CODE.
+      GS_HEADER-DOC_DATE   = GS_MAIN-DOC_DATE.
+      GS_HEADER-PSTNG_DATE = GS_MAIN-PSTNG_DATE.
+      GS_HEADER-TRANS_DATE = GS_MAIN-TRANS_DATE.
+      GS_HEADER-FISC_YEAR  = GS_MAIN-FISC_YEAR.
+      GS_HEADER-FIS_PERIOD = GS_MAIN-FIS_PERIOD.
+      GS_HEADER-DOC_TYPE   = GS_MAIN-DOC_TYPE.
+      GS_HEADER-OBJ_KEY    = GS_MAIN-OBJ_KEY.
+
+      LOOP AT GT_TAB INTO GS_TAB.
+
+        CASE GS_TAB-SHKZG.
+          WHEN 'H'.
+            GS_TAB-AMT_DOCCUR *= -1.
+          WHEN 'S'.
+            GS_TAB-AMT_DOCCUR *= 1.
+          WHEN OTHERS.
+        ENDCASE.
+
+        CLEAR GS_ITEM.
+        GS_ITEM-ITEMNO_ACC = GS_TAB-ITEMNO_ACC.
+        GS_ITEM-GL_ACCOUNT = GS_TAB-GL_ACCOUNT.
+        GS_ITEM-ITEM_TEXT  = GS_TAB-ITEM_TEXT.
+        APPEND GS_ITEM TO GT_ITEM.
+
+        CLEAR GS_ITEM2.
+        GS_ITEM2-ITEMNO_ACC = GS_TAB-ITEMNO_ACC.
+        GS_ITEM2-CURRENCY   = GS_TAB-CURRENCY.
+        GS_ITEM2-AMT_DOCCUR = GS_TAB-AMT_DOCCUR.
+        APPEND GS_ITEM2 TO GT_ITEM2.
+
+      ENDLOOP.
+
+      CLEAR GT_RETURN.
+      CALL FUNCTION 'BAPI_ACC_DOCUMENT_POST'
+        EXPORTING
+          DOCUMENTHEADER = GS_HEADER
+        IMPORTING
+          OBJ_KEY        = GV_KEY
+        TABLES
+          ACCOUNTGL      = GT_ITEM
+          CURRENCYAMOUNT = GT_ITEM2
+          RETURN         = GT_RETURN.
+      CLEAR: GS_HEADER, GT_ITEM, GT_ITEM2.
+
+      DATA LV_MSG TYPE STRING.
+      LOOP AT GT_RETURN INTO GS_RETURN WHERE TYPE CA 'EAX'.
+        CONCATENATE GS_RETURN-MESSAGE LV_MSG INTO LV_MSG SEPARATED BY '.'.
+      ENDLOOP.
+
+      IF SY-SUBRC = 0.
+
+        CLEAR: GT_RETURN,
+               GS_RETURN.
+        CALL FUNCTION 'BAPI_TRANSACTION_ROLLBACK'
+          IMPORTING
+            RETURN = GS_RETURN.
+        MESSAGE 'Failed, Data not Balanced, Rollback the Data' TYPE 'E'.
+
+      ELSE.
+
+        CLEAR: GT_RETURN,
+               GS_RETURN.
+        CALL FUNCTION 'BAPI_TRANSACTION_COMMIT'
+          IMPORTING
+            RETURN = GS_RETURN.
+        MESSAGE 'Successfully Committed : ' && GV_KEY+0(10) TYPE 'S'.
+
+        LOOP AT GT_TAB INTO GS_TAB WHERE GL_ACCOUNT IS INITIAL
+                                   OR ITEM_TEXT IS INITIAL
+                                   OR CURRENCY IS INITIAL
+                                   OR SHKZG IS INITIAL
+                                   OR AMT_DOCCUR IS INITIAL.
+
+        DELETE GT_TAB INDEX SYST-TABIX.
+*        MODIFY GT_TAB FROM GS_TAB TRANSPORTING ITEMNO_ACC.
+        ENDLOOP.
+
+      ENDIF.
+
+      GS_MAIN-OBJ_KEY = GV_KEY+0(10).
+
+ENDFORM.
+
+*&SPWizard: Data incl. inserted by SP Wizard. DO NOT CHANGE THIS LINE!
+INCLUDE Z44655_W6D4_EXAM_TC .

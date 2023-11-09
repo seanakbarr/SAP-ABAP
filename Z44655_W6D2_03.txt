@@ -1,0 +1,123 @@
+*&---------------------------------------------------------------------*
+*& Report Z44655_W6D1_TEST
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT Z44655_W6D2_03.
+
+TYPES: BEGIN OF TS_USER_INFO,
+         USERNAME TYPE XUBNAME,
+         PASSWORD TYPE CHAR100,
+       END OF TS_USER_INFO.
+
+DATA GS_USER_INFO TYPE TS_USER_INFO.
+DATA GV_IS_CORRECT TYPE ABAP_BOOL VALUE ABAP_TRUE.
+
+DATA GT_RETURN TYPE STANDARD TABLE OF BAPIRET2.
+DATA GS_RETURN TYPE BAPIRET2.
+DATA GS_ADDR_INFO TYPE BAPIADDR3.
+
+START-OF-SELECTION.
+  CALL SCREEN '9004'.
+
+*&---------------------------------------------------------------------*
+*& Module STATUS_9004 OUTPUT
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+MODULE STATUS_9004 OUTPUT.
+ SET PF-STATUS SY-DYNNR.
+ SET TITLEBAR SY-DYNNR WITH text-t01.
+ENDMODULE.
+
+*&---------------------------------------------------------------------*
+*&      Module  USER_COMMAND_9004  INPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE USER_COMMAND_9004 INPUT.
+ CASE SY-UCOMM.
+ 	WHEN '&ZLOGIN'.
+      CLEAR GS_RETURN.
+      CALL FUNCTION 'BAPI_USER_EXISTENCE_CHECK'
+        EXPORTING
+          USERNAME = GS_USER_INFO-USERNAME
+        IMPORTING
+          RETURN   = GS_RETURN.
+      IF GS_RETURN-TYPE = 'I' AND GS_RETURN-ID = '01' AND GS_RETURN-NUMBER = '124'.
+        GV_IS_CORRECT = ABAP_FALSE.
+        RETURN.
+*        MESSAGE GS_RETURN-MESSAGE TYPE 'E'.
+      ELSE.
+        GV_IS_CORRECT = ABAP_TRUE.
+      ENDIF.
+
+      CLEAR GT_RETURN.
+      CALL FUNCTION 'BAPI_USER_GET_DETAIL'
+        EXPORTING
+          USERNAME      = GS_USER_INFO-USERNAME
+          CACHE_RESULTS = ABAP_FALSE
+        IMPORTING
+          ADDRESS       = GS_ADDR_INFO
+        TABLES
+          RETURN        = GT_RETURN.
+      IF GS_ADDR_INFO IS NOT INITIAL.
+        CL_DEMO_OUTPUT=>DISPLAY( GS_ADDR_INFO ).
+      ENDIF.
+
+      CLEAR GS_ADDR_INFO.
+ 	WHEN OTHERS.
+ ENDCASE.
+ENDMODULE.
+
+*&---------------------------------------------------------------------*
+*&      Module  ON_EXIT_9004  INPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE ON_EXIT_9004 INPUT.
+  CASE SY-UCOMM.
+ 	  WHEN '&ZBACK' OR '&ZEND' OR '&ZEXIT'.
+      LEAVE PROGRAM.
+ 	   WHEN OTHERS.
+ ENDCASE.
+ENDMODULE.
+
+*&---------------------------------------------------------------------*
+*& Module CHANGE_ATTRS OUTPUT
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+MODULE CHANGE_ATTRS OUTPUT.
+
+*  "To make Login button disappeared if we use wrong username"
+*  LOOP AT SCREEN.
+*
+*    IF SCREEN-NAME <> 'BTN_LOGIN'.
+*      CONTINUE.
+*    ENDIF.
+*
+*    IF GV_IS_CORRECT = ABAP_FALSE.
+*        SCREEN-INVISIBLE = 1.
+*    ELSE.
+*      SCREEN-INVISIBLE = 0.
+*    ENDIF.
+*    MODIFY SCREEN.
+*  ENDLOOP.
+
+  " To make Password Textfield can't be edited"
+  LOOP AT SCREEN.
+
+    IF SCREEN-NAME <> 'GS_USER_INFO-PASSWORD'.
+      CONTINUE.
+    ENDIF.
+
+    IF GV_IS_CORRECT = ABAP_FALSE.
+      SCREEN-INPUT = 0.
+    ELSE.
+      SCREEN-INPUT = 1.
+    ENDIF.
+    MODIFY SCREEN.
+  ENDLOOP.
+
+ENDMODULE.

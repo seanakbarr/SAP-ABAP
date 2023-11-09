@@ -1,0 +1,470 @@
+*&---------------------------------------------------------------------*
+*& Report Z44655_W2D5_EXAM_ANSWER
+*&---------------------------------------------------------------------*
+*& Purchasing Order Receiving Information for [Sean Akbar Ryanto]
+*&---------------------------------------------------------------------*
+REPORT Z44655_W3D5_EXAMC.
+
+TABLES: EKKO,
+        EKPO.
+
+PARAMETERS: P_BSTYP TYPE EKKO-BSTYP OBLIGATORY DEFAULT 'F'.
+PARAMETERS: P_WERKS TYPE EKPO-WERKS OBLIGATORY.
+SELECT-OPTIONS: S_EKORG FOR EKKO-EKORG DEFAULT '1710',
+                S_EBELN FOR EKKO-EBELN,
+                S_MATNR FOR EKPO-MATNR.
+
+TYPES TS_PO TYPE ZSW344655_STR1.
+TYPES TT_PO TYPE STANDARD TABLE OF TS_PO.
+
+DATA GT_PO TYPE TT_PO.
+
+INITIALIZATION.
+
+  PERFORM FRM_SET_DEFAULT_VALUE.
+
+AT SELECTION-SCREEN.
+
+  PERFORM FRM_CHECK_EXISTENCE USING P_WERKS.
+
+START-OF-SELECTION.
+
+  PERFORM FRM_GET_DATA CHANGING GT_PO.
+
+  PERFORM FRM_SHOW_ALV.
+
+*&---------------------------------------------------------------------*
+*& Form FRM_SET_DEFAULT_VALUE
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM FRM_SET_DEFAULT_VALUE .
+
+  DATA LS_EBELN LIKE LINE OF S_EBELN.
+  LS_EBELN-SIGN   = 'I'.
+  LS_EBELN-OPTION = 'EQ'.
+  LS_EBELN-LOW    = '4500000107'.
+  LS_EBELN-HIGH   = ''.
+  APPEND LS_EBELN TO S_EBELN.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form FRM_CHECK_EXISTENCE
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*&      --> P_WERKS
+*&---------------------------------------------------------------------*
+FORM FRM_CHECK_EXISTENCE  USING    PV_WERKS.
+
+  DATA LV_WERKS TYPE EKPO-WERKS.
+  SELECT SINGLE WERKS
+    FROM T001W
+    INTO LV_WERKS
+   WHERE WERKS = PV_WERKS.
+  IF SY-SUBRC <> 0.
+    MESSAGE 'Plant not found!' TYPE 'E'.
+  ENDIF.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form FRM_GET_DATA
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM FRM_GET_DATA CHANGING CT_PO TYPE TT_PO.
+
+  SELECT *
+    FROM EKKO
+   INNER JOIN EKPO
+      ON EKKO~EBELN = EKPO~EBELN
+    INTO CORRESPONDING FIELDS OF TABLE CT_PO
+   WHERE EKKO~BSTYP = P_BSTYP
+     AND EKPO~WERKS = P_WERKS
+     AND EKKO~EKORG IN S_EKORG
+     AND EKKO~EBELN IN S_EBELN
+     AND EKPO~MATNR IN S_MATNR.
+  IF SY-SUBRC <> 0.
+    MESSAGE 'No data found!' TYPE 'E'.
+  ENDIF.
+
+  DATA LT_LFA1 TYPE STANDARD TABLE OF LFA1.
+  SELECT *
+    FROM LFA1
+    INTO CORRESPONDING FIELDS OF TABLE LT_LFA1
+     FOR ALL ENTRIES IN CT_PO
+   WHERE LFA1~LIFNR = CT_PO-LIFNR.
+  IF SY-SUBRC = 0.
+    SORT LT_LFA1.
+  ENDIF.
+
+  DATA LT_MAKT TYPE STANDARD TABLE OF MAKT.
+  SELECT *
+    FROM MAKT
+    INTO CORRESPONDING FIELDS OF TABLE LT_MAKT
+     FOR ALL ENTRIES IN CT_PO
+   WHERE MAKT~MATNR = CT_PO-MATNR
+     AND MAKT~SPRAS = SY-LANGU.
+  IF SY-SUBRC = 0.
+    SORT LT_MAKT.
+  ENDIF.
+
+  DATA LT_RSEG TYPE STANDARD TABLE OF RSEG.
+  SELECT *
+    FROM RSEG
+    INTO CORRESPONDING FIELDS OF TABLE LT_RSEG
+     FOR ALL ENTRIES IN CT_PO
+   WHERE RSEG~EBELN = CT_PO-EBELN
+     AND RSEG~EBELP = CT_PO-EBELP.
+  IF SY-SUBRC = 0.
+    SORT LT_RSEG.
+  ENDIF.
+
+  DATA LT_EKBE TYPE STANDARD TABLE OF EKBE.
+  SELECT *
+    FROM EKBE
+    INTO CORRESPONDING FIELDS OF TABLE LT_EKBE
+     FOR ALL ENTRIES IN CT_PO
+   WHERE EKBE~EBELN = CT_PO-EBELN
+     AND EKBE~EBELP = CT_PO-EBELP
+     AND EKBE~BEWTP = 'E'.
+  IF SY-SUBRC = 0.
+    SORT LT_EKBE.
+  ENDIF.
+
+  DATA LT_COLOR TYPE STANDARD TABLE OF ZTW344655_COLOR.
+  DATA LS_COLOR LIKE LINE OF LT_COLOR.
+  SELECT *
+    FROM ZTW344655_COLOR
+    INTO CORRESPONDING FIELDS OF TABLE LT_COLOR.
+  IF SY-SUBRC = 0.
+    SORT LT_COLOR.
+  ENDIF.
+
+  DATA LS_PO TYPE TS_PO.
+  DATA LS_LFA1 LIKE LINE OF LT_LFA1.
+  DATA LS_MAKT LIKE LINE OF LT_MAKT.
+  DATA LS_RSEG LIKE LINE OF LT_RSEG.
+  DATA LS_EKBE LIKE LINE OF LT_EKBE.
+  DATA LS_CELL_COLOR TYPE LVC_S_SCOL.
+
+  LOOP AT CT_PO INTO LS_PO.
+
+    READ TABLE LT_LFA1 INTO LS_LFA1 WITH KEY LIFNR = LS_PO-LIFNR
+                                    BINARY SEARCH.
+    IF SY-SUBRC = 0.
+      LS_PO-NAME1 = LS_LFA1-NAME1.
+      CLEAR LS_LFA1.
+    ENDIF.
+
+    READ TABLE LT_MAKT INTO LS_MAKT WITH KEY MATNR = LS_PO-MATNR
+                                    BINARY SEARCH.
+    IF SY-SUBRC = 0.
+      LS_PO-MAKTX = LS_MAKT-MAKTX.
+      CLEAR LS_MAKT.
+    ENDIF.
+
+    " RSEG"
+    LOOP AT LT_RSEG INTO LS_RSEG WHERE EBELN = LS_PO-EBELN
+                                   AND EBELP = LS_PO-EBELP.
+      READ TABLE LT_COLOR INTO LS_COLOR WITH KEY SHKZG = LS_RSEG-SHKZG
+                                          BINARY SEARCH.
+      IF SY-SUBRC = 0.
+        IF LS_RSEG-SHKZG = 'S'.
+          LS_PO-BPMNG += LS_RSEG-BPMNG.
+          LS_PO-WRBTR += LS_RSEG-WRBTR.
+
+          CLEAR: LS_CELL_COLOR.
+          LS_CELL_COLOR-FNAME = 'BPMNG'.
+          LS_CELL_COLOR-COLOR-COL = LS_COLOR-ZCOLOR.
+
+
+          APPEND LS_CELL_COLOR TO LS_PO-CELL_COLOR.
+
+          CLEAR: LS_CELL_COLOR.
+          LS_CELL_COLOR-FNAME = 'WRBTR'.
+          LS_CELL_COLOR-COLOR-COL = LS_COLOR-ZCOLOR.
+
+
+
+          APPEND LS_CELL_COLOR TO LS_PO-CELL_COLOR.
+
+          MODIFY LT_RSEG FROM LS_RSEG.
+
+        ELSEIF LS_RSEG-SHKZG = 'H'.
+          LS_PO-BPMNG -= LS_RSEG-BPMNG.
+          LS_PO-WRBTR -= LS_RSEG-WRBTR.
+
+          CLEAR: LS_CELL_COLOR.
+          LS_CELL_COLOR-FNAME = 'BPMNG'.
+          LS_CELL_COLOR-COLOR-COL = LS_COLOR-ZCOLOR.
+.
+
+
+          APPEND LS_CELL_COLOR TO LS_PO-CELL_COLOR.
+
+          CLEAR: LS_CELL_COLOR.
+          LS_CELL_COLOR-FNAME = 'WRBTR'.
+          LS_CELL_COLOR-COLOR-COL = LS_COLOR-ZCOLOR.
+
+
+
+          APPEND LS_CELL_COLOR TO LS_PO-CELL_COLOR.
+
+          MODIFY LT_RSEG FROM LS_RSEG.
+
+        ENDIF.
+      ENDIF.
+
+      CLEAR LS_RSEG.
+    ENDLOOP.
+
+    " EKBE "
+    LOOP AT LT_EKBE INTO LS_EKBE WHERE EBELN = LS_PO-EBELN
+                                   AND EBELP = LS_PO-EBELP.
+      READ TABLE LT_EKBE INTO LS_EKBE WITH KEY SHKZG = LS_EKBE-SHKZG
+                                          BINARY SEARCH.
+      IF SY-SUBRC = 0.
+        IF LS_EKBE-SHKZG = 'S'.
+          LS_PO-BPMNG_2 += LS_EKBE-BPMNG.
+          LS_PO-WRBTR_2 += LS_EKBE-WRBTR.
+
+          CLEAR: LS_CELL_COLOR.
+          LS_CELL_COLOR-FNAME = 'BPMNG_2'.
+          LS_CELL_COLOR-COLOR-COL = LS_COLOR-ZCOLOR.
+
+
+          APPEND LS_CELL_COLOR TO LS_PO-CELL_COLOR.
+
+          CLEAR: LS_CELL_COLOR.
+          LS_CELL_COLOR-FNAME = 'WRBTR_2'.
+          LS_CELL_COLOR-COLOR-COL = LS_COLOR-ZCOLOR.
+
+
+          APPEND LS_CELL_COLOR TO LS_PO-CELL_COLOR.
+
+          MODIFY LT_EKBE FROM LS_EKBE.
+
+        ELSEIF LS_EKBE-SHKZG = 'H'.
+          LS_PO-BPMNG_2 -= LS_EKBE-BPMNG.
+          LS_PO-WRBTR_2 -= LS_EKBE-WRBTR.
+
+          CLEAR: LS_CELL_COLOR.
+          LS_CELL_COLOR-FNAME = 'BPMNG_2'.
+          LS_CELL_COLOR-COLOR-COL = LS_COLOR-ZCOLOR.
+
+
+          APPEND LS_CELL_COLOR TO LS_PO-CELL_COLOR.
+
+          CLEAR: LS_CELL_COLOR.
+          LS_CELL_COLOR-FNAME = 'WRBTR_2'.
+          LS_CELL_COLOR-COLOR-COL = LS_COLOR-ZCOLOR.
+
+
+          APPEND LS_CELL_COLOR TO LS_PO-CELL_COLOR.
+
+          MODIFY LT_EKBE FROM LS_EKBE.
+
+        ENDIF.
+      ENDIF.
+
+      CLEAR LS_EKBE.
+    ENDLOOP.
+
+    MODIFY CT_PO FROM LS_PO.
+
+  ENDLOOP.
+
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form frm_show_alv
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM FRM_SHOW_ALV .
+
+  DATA: LT_FCAT TYPE LVC_T_FCAT.
+
+  CALL FUNCTION 'LVC_FIELDCATALOG_MERGE'
+    EXPORTING
+      I_STRUCTURE_NAME       = 'ZSW344655_STR1'
+    CHANGING
+      CT_FIELDCAT            = LT_FCAT
+    EXCEPTIONS
+      INCONSISTENT_INTERFACE = 1
+      PROGRAM_ERROR          = 2
+      OTHERS                 = 3.
+
+  DATA LS_LAYOUT TYPE LVC_S_LAYO.
+  LS_LAYOUT-CWIDTH_OPT = 'X'.
+  LS_LAYOUT-ZEBRA = 'X'.
+  LS_LAYOUT-CTAB_FNAME = 'CELL_COLOR'.
+  LS_LAYOUT-STYLEFNAME = 'CELL_STYLE'.
+
+  DATA LS_FCAT LIKE LINE OF LT_FCAT.
+  LOOP AT LT_FCAT INTO LS_FCAT.
+
+    CASE LS_FCAT-FIELDNAME.
+        " To give a Hotspot to EBELN Column and interaction between user and the column "
+      WHEN 'EBELN'.
+        LS_FCAT-HOTSPOT = 'X'.
+        LS_FCAT-REF_TABLE = 'EKKO'.
+        LS_FCAT-REF_FIELD = 'EBELN'.
+      WHEN 'MATNR'.
+        LS_FCAT-HOTSPOT = 'X'.
+      WHEN 'LIFNR'.
+        LS_FCAT-HOTSPOT = 'X'.
+      WHEN OTHERS.
+    ENDCASE.
+
+    MODIFY LT_FCAT FROM LS_FCAT.
+  ENDLOOP.
+
+  DATA LT_EVENTS TYPE SLIS_T_EVENT.
+  DATA LS_EVENTS LIKE LINE OF LT_EVENTS.
+
+  LS_EVENTS-NAME = SLIS_EV_PF_STATUS_SET.
+  LS_EVENTS-FORM = 'FRM_SET_PF_STATUS'.
+
+  APPEND LS_EVENTS TO LT_EVENTS.
+
+  LS_EVENTS-NAME = SLIS_EV_USER_COMMAND.
+  LS_EVENTS-FORM = 'FRM_USER_COMMAND'.
+
+  APPEND LS_EVENTS TO LT_EVENTS.
+
+  CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY_LVC'
+    EXPORTING
+      I_CALLBACK_PROGRAM = SY-REPID
+      I_GRID_TITLE       = 'Purchase Order Receiving Information for [Sean Akbar Ryanto]'
+      IS_LAYOUT_LVC      = LS_LAYOUT
+      IT_FIELDCAT_LVC    = LT_FCAT
+      I_DEFAULT          = 'X'
+      I_SAVE             = 'A'
+      IT_EVENTS          = LT_EVENTS
+    TABLES
+      T_OUTTAB           = GT_PO
+    EXCEPTIONS
+      PROGRAM_ERROR      = 1
+      OTHERS             = 2.
+
+  IF SY-SUBRC <> 0.
+
+  ENDIF.
+
+ENDFORM.
+
+FORM FRM_SET_PF_STATUS USING PV_EXCL_TAB TYPE KKBLO_T_EXTAB.
+  SET TITLEBAR 'TITLE' WITH 'ALV' 'Report' 'ABAP Dictionary' 'Practice Exam C'.
+  SET PF-STATUS 'STANDARD_FULLSCREEN'.
+
+  DATA LO_GRID TYPE REF TO CL_GUI_ALV_GRID.
+  CALL FUNCTION 'GET_GLOBALS_FROM_SLVC_FULLSCR'
+    IMPORTING
+      E_GRID = LO_GRID.
+
+ENDFORM.
+
+FORM FRM_USER_COMMAND USING PV_UCOMM       LIKE SY-UCOMM
+                            PS_FIELD_INFO  TYPE SLIS_SELFIELD.
+
+  CASE PV_UCOMM.
+    WHEN '&IC1'.
+      IF PS_FIELD_INFO-SEL_TAB_FIELD = '1-EBELN'.
+        SET PARAMETER ID 'BES' FIELD PS_FIELD_INFO-VALUE.
+        CALL TRANSACTION 'ME23N' AND SKIP FIRST SCREEN.
+      ELSEIF PS_FIELD_INFO-SEL_TAB_FIELD = '1-MATNR'.
+        SET PARAMETER ID 'MAT' FIELD PS_FIELD_INFO-VALUE.
+        CALL TRANSACTION 'MM03' AND SKIP FIRST SCREEN.
+      ELSEIF PS_FIELD_INFO-SEL_TAB_FIELD = '1-LIFNR'.
+        SET PARAMETER ID 'LIF' FIELD PS_FIELD_INFO-VALUE.
+        CALL TRANSACTION 'XK03' AND SKIP FIRST SCREEN.
+      ELSE.
+        DATA: LT_STR2 TYPE STANDARD TABLE OF ZSW344655_STR2,
+              LS_STR2 LIKE LINE OF LT_STR2.
+
+        DATA LS_PO LIKE LINE OF GT_PO.
+        READ TABLE GT_PO INTO LS_PO INDEX PS_FIELD_INFO-TABINDEX.
+        IF SY-SUBRC <> 0.
+          RETURN.
+        ENDIF.
+
+        SELECT *
+          FROM RSEG
+          INNER JOIN RBKP
+            ON RBKP~BELNR = RSEG~BELNR
+           AND RBKP~GJAHR = RSEG~GJAHR
+          INTO CORRESPONDING FIELDS OF TABLE LT_STR2
+         WHERE EBELN = LS_PO-EBELN
+           AND EBELP = LS_PO-EBELP.
+        IF SY-SUBRC = 0.
+          SORT LT_STR2.
+        ENDIF.
+
+        DATA LT_COLOR TYPE STANDARD TABLE OF ZTW344655_COLOR.
+        DATA LS_COLOR LIKE LINE OF LT_COLOR.
+        SELECT *
+          FROM ZTW344655_COLOR
+          INTO CORRESPONDING FIELDS OF TABLE LT_COLOR.
+        IF SY-SUBRC = 0.
+          SORT LT_COLOR.
+        ENDIF.
+
+        DATA LS_CELL_COLOR TYPE LVC_S_SCOL.
+        LOOP AT LT_STR2 INTO LS_STR2.
+          READ TABLE LT_COLOR INTO LS_COLOR WITH KEY SHKZG = LS_STR2-SHKZG
+                                          BINARY SEARCH.
+
+          CLEAR: LS_CELL_COLOR.
+          LS_CELL_COLOR-FNAME = ''.
+          LS_CELL_COLOR-COLOR-COL = LS_COLOR-ZCOLOR.
+
+          APPEND LS_CELL_COLOR TO LS_STR2-CELL_COLOR.
+          MODIFY LT_STR2 FROM LS_STR2.
+        ENDLOOP.
+
+        DATA LS_LAYOUT TYPE LVC_S_LAYO.
+        LS_LAYOUT-CWIDTH_OPT = ABAP_TRUE.
+        LS_LAYOUT-ZEBRA      = ABAP_TRUE.
+        LS_LAYOUT-CTAB_FNAME = 'CELL_COLOR'.
+
+        DATA LT_FCAT TYPE LVC_T_FCAT.
+        CALL FUNCTION 'LVC_FIELDCATALOG_MERGE'
+          EXPORTING
+            I_STRUCTURE_NAME       = 'ZSW344655_STR2'
+          CHANGING
+            CT_FIELDCAT            = LT_FCAT
+          EXCEPTIONS
+            INCONSISTENT_INTERFACE = 1
+            PROGRAM_ERROR          = 2
+            OTHERS                 = 3.
+        IF SY-SUBRC <> 0.
+*         Implement suitable error handling here
+        ENDIF.
+
+        CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY_LVC'
+          EXPORTING
+            IT_FIELDCAT_LVC = LT_FCAT
+            IS_LAYOUT_LVC   = LS_LAYOUT
+          TABLES
+            T_OUTTAB        = LT_STR2
+          EXCEPTIONS
+            PROGRAM_ERROR   = 1
+            OTHERS          = 2.
+        IF SY-SUBRC <> 0.
+*         Implement suitable error handling here
+        ENDIF.
+      ENDIF.
+    WHEN OTHERS.
+    ENDCASE.
+ENDFORM.

@@ -1,0 +1,85 @@
+*&---------------------------------------------------------------------*
+*& Report Z44655_W6D1_TEST
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT Z44655_W6D3_03.
+
+TYPES: BEGIN OF TS_USER_INFO,
+         USERNAME TYPE XUBNAME,
+         PASSWORD TYPE CHAR100,
+       END OF TS_USER_INFO.
+
+DATA: GT_SPFLI TYPE STANDARD TABLE OF ZVSPFLI44655,
+      GS_SPFLI TYPE ZVSPFLI44655.
+
+DATA GS_USER_INFO TYPE TS_USER_INFO.
+
+DATA GT_RETURN TYPE STANDARD TABLE OF BAPIRET2.
+DATA GS_RETURN TYPE BAPIRET2.
+DATA GS_ADDR_INFO TYPE BAPIADDR3.
+
+START-OF-SELECTION.
+  CALL SCREEN '9004'.
+
+*&---------------------------------------------------------------------*
+*& Module STATUS_9004 OUTPUT
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+MODULE STATUS_9004 OUTPUT.
+ SET PF-STATUS SY-DYNNR.
+ SET TITLEBAR SY-DYNNR WITH text-t01.
+ENDMODULE.
+*&---------------------------------------------------------------------*
+*&      Module  USER_COMMAND_9004  INPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE USER_COMMAND_9004 INPUT.
+ CASE SY-UCOMM.
+ 	WHEN '&ZLOGIN'.
+      CLEAR GS_RETURN.
+      CALL FUNCTION 'BAPI_USER_EXISTENCE_CHECK'
+        EXPORTING
+          USERNAME = GS_USER_INFO-USERNAME
+        IMPORTING
+          RETURN   = GS_RETURN.
+      IF GS_RETURN-TYPE = 'I' AND GS_RETURN-ID = '01' AND GS_RETURN-NUMBER = '124' .
+        MESSAGE GS_RETURN-MESSAGE TYPE 'E'.
+      ENDIF.
+
+      CLEAR GT_RETURN.
+      CALL FUNCTION 'BAPI_USER_GET_DETAIL'
+        EXPORTING
+          USERNAME      = GS_USER_INFO-USERNAME
+          CACHE_RESULTS = ABAP_FALSE
+        IMPORTING
+          ADDRESS       = GS_ADDR_INFO
+        TABLES
+          RETURN        = GT_RETURN.
+      IF GS_ADDR_INFO IS NOT INITIAL.
+        SELECT *
+          FROM ZVSPFLI44655
+          INTO TABLE @GT_SPFLI.
+      ENDIF.
+
+      CLEAR GS_ADDR_INFO.
+ 	WHEN OTHERS.
+ ENDCASE.
+ENDMODULE.
+*&---------------------------------------------------------------------*
+*&      Module  ON_EXIT_9004  INPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE ON_EXIT_9004 INPUT.
+  CASE SY-UCOMM.
+ 	  WHEN '&ZBACK' OR '&ZEND' OR '&ZEXIT'.
+      LEAVE PROGRAM.
+ 	   WHEN OTHERS.
+ ENDCASE.
+ENDMODULE.
+
+*&SPWizard: Data incl. inserted by SP Wizard. DO NOT CHANGE THIS LINE!
+INCLUDE Z44655_W6D3_03_TC .

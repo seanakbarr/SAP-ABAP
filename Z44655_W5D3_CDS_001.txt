@@ -1,0 +1,26 @@
+*&---------------------------------------------------------------------*
+*& Report z44655_w5d3_cds_001
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT Z44655_W5D3_CDS_001.
+
+DATA GT_SCARR TYPE STANDARD TABLE OF ZVSCARR44655_001.
+
+SELECT *
+  FROM ZVSCARR44655_001
+  INTO CORRESPONDING FIELDS OF TABLE @GT_SCARR.
+ IF SY-SUBRC = 0.
+    CL_DEMO_OUTPUT=>DISPLAY( GT_SCARR ).
+ ENDIF.
+
+ DATA GT_FI_DOCS TYPE STANDARD TABLE OF ZVFIDOC_44655.
+
+ SELECT *
+   FROM ZVFIDOC_44655
+   INTO CORRESPONDING FIELDS OF TABLE @GT_FI_DOCS
+  WHERE BELNR = '4900000026'
+    AND GJAHR = '2021'.
+  IF SY-SUBRC = 0.
+    CL_DEMO_OUTPUT=>DISPLAY( GT_FI_DOCS ).
+ ENDIF.

@@ -1,0 +1,292 @@
+*&---------------------------------------------------------------------*
+*& Report Z44655_W7D3_06
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT Z44655_W7D3_06.
+
+CLASS LCL_PROG DEFINITION
+  CREATE PRIVATE.
+
+  PUBLIC SECTION.
+
+    TYPES: TY_SCARR TYPE SCARR,
+           TTY_SCARR TYPE STANDARD TABLE OF TY_SCARR.
+
+    TYPES: TY_SFLIGHT TYPE SFLIGHT,
+           TTY_SFLIGHT TYPE STANDARD TABLE OF TY_SFLIGHT.
+
+    METHODS INITIALIZATION.
+    METHODS AT_SELECTION_SCREEN.
+    METHODS SET_FCAT.
+    METHODS SET_LAYOUT.
+    METHODS SHOW_FUNCTIONAL_ALV.
+    METHODS INIT_CONTAINER.
+    METHODS SHOW_OO_ALV.
+    METHODS SHOW_OO_ALV2.
+    METHODS MAIN.
+    CLASS-METHODS GET_INSTANCE
+      RETURNING VALUE(RV_INSTANCE) TYPE REF TO LCL_PROG.
+
+    DATA GO_CONTAINER_SCARR TYPE REF TO CL_GUI_CUSTOM_CONTAINER READ-ONLY.
+    DATA GO_ALV TYPE REF TO CL_GUI_ALV_GRID READ-ONLY.
+
+    DATA GO_CONTAINER_SFLIGHT TYPE REF TO CL_GUI_CUSTOM_CONTAINER READ-ONLY.
+    DATA GO_ALV2 TYPE REF TO CL_GUI_ALV_GRID READ-ONLY.
+
+  PROTECTED SECTION.
+
+  PRIVATE SECTION.
+
+    METHODS CONSTRUCTOR.
+
+    DATA: GT_SCARR TYPE TTY_SCARR,
+          GS_SCARR TYPE TY_SCARR.
+
+    DATA: GT_SFLIGHT TYPE TTY_SFLIGHT,
+          GS_SFLIGHT TYPE TY_SFLIGHT.
+
+    DATA: GT_FCAT TYPE LVC_T_FCAT,
+          GT_FCAT2 TYPE LVC_T_FCAT,
+          GS_LAYOUT TYPE LVC_S_LAYO.
+
+    CLASS-DATA GO_INSTANCE TYPE REF TO LCL_PROG.
+
+ENDCLASS.
+
+CLASS LCL_PROG IMPLEMENTATION.
+
+  METHOD CONSTRUCTOR.
+
+  ENDMETHOD.
+
+  METHOD INITIALIZATION.
+
+    SELECT *
+      FROM SCARR
+     INTO TABLE GT_SCARR.
+
+    SELECT *
+      FROM SFLIGHT
+     INTO TABLE GT_SFLIGHT.
+
+  ENDMETHOD.
+
+  METHOD AT_SELECTION_SCREEN.
+
+  ENDMETHOD.
+
+  METHOD SET_FCAT.
+
+    CALL FUNCTION 'LVC_FIELDCATALOG_MERGE'
+     EXPORTING
+       I_STRUCTURE_NAME             = 'SCARR'
+      CHANGING
+        CT_FIELDCAT                 = GT_FCAT
+     EXCEPTIONS
+       INCONSISTENT_INTERFACE       = 1
+       PROGRAM_ERROR                = 2
+       OTHERS                       = 3
+              .
+    IF SY-SUBRC <> 0.
+* Implement suitable error handling here
+    ENDIF.
+
+    CALL FUNCTION 'LVC_FIELDCATALOG_MERGE'
+     EXPORTING
+       I_STRUCTURE_NAME             = 'SFLIGHT'
+      CHANGING
+        CT_FIELDCAT                 = GT_FCAT2
+     EXCEPTIONS
+       INCONSISTENT_INTERFACE       = 1
+       PROGRAM_ERROR                = 2
+       OTHERS                       = 3
+              .
+    IF SY-SUBRC <> 0.
+* Implement suitable error handling here
+    ENDIF.
+
+  ENDMETHOD.
+
+  METHOD SET_LAYOUT.
+
+    GS_LAYOUT-CWIDTH_OPT = 'X'.
+    GS_LAYOUT-ZEBRA      = 'X'.
+
+  ENDMETHOD.
+
+  METHOD SHOW_FUNCTIONAL_ALV.
+
+    CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY_LVC'
+       EXPORTING
+         IS_LAYOUT_LVC                     = GS_LAYOUT
+         IT_FIELDCAT_LVC                   = GT_FCAT
+       TABLES
+         T_OUTTAB                          = GT_SCARR
+       EXCEPTIONS
+         PROGRAM_ERROR                     = 1
+         OTHERS                            = 2
+              .
+    IF SY-SUBRC <> 0.
+* Implement suitable error handling here
+    ENDIF.
+
+    CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY_LVC'
+       EXPORTING
+         IS_LAYOUT_LVC                     = GS_LAYOUT
+         IT_FIELDCAT_LVC                   = GT_FCAT2
+       TABLES
+         T_OUTTAB                          = GT_SFLIGHT
+       EXCEPTIONS
+         PROGRAM_ERROR                     = 1
+         OTHERS                            = 2
+              .
+    IF SY-SUBRC <> 0.
+* Implement suitable error handling here
+    ENDIF.
+
+  ENDMETHOD.
+
+  METHOD INIT_CONTAINER.
+
+    CREATE OBJECT GO_CONTAINER_SCARR
+      EXPORTING
+        CONTAINER_NAME = 'SCARR'.
+
+    CREATE OBJECT GO_CONTAINER_SFLIGHT
+      EXPORTING
+        CONTAINER_NAME = 'SFLIGHT'.
+
+    CREATE OBJECT GO_ALV
+      EXPORTING
+        I_PARENT = GO_CONTAINER_SCARR.
+
+    CREATE OBJECT GO_ALV2
+      EXPORTING
+        I_PARENT = GO_CONTAINER_SFLIGHT.
+
+  ENDMETHOD.
+
+  METHOD SHOW_OO_ALV.
+
+    CALL METHOD GO_ALV->SET_TABLE_FOR_FIRST_DISPLAY
+      EXPORTING
+        I_SAVE                        = 'A'
+        I_DEFAULT                     = 'X'
+        IS_LAYOUT                     = GS_LAYOUT
+      CHANGING
+        IT_OUTTAB                     = GT_SCARR
+        IT_FIELDCATALOG               = GT_FCAT
+      EXCEPTIONS
+        INVALID_PARAMETER_COMBINATION = 1
+        PROGRAM_ERROR                 = 2
+        TOO_MANY_LINES                = 3
+        OTHERS                        = 4
+            .
+    IF SY-SUBRC <> 0.
+*     Implement suitable error handling here
+    ENDIF.
+
+  ENDMETHOD.
+
+  METHOD SHOW_OO_ALV2.
+
+    CALL METHOD GO_ALV2->SET_TABLE_FOR_FIRST_DISPLAY
+      EXPORTING
+        I_SAVE                        = 'A'
+        I_DEFAULT                     = 'X'
+        IS_LAYOUT                     = GS_LAYOUT
+      CHANGING
+        IT_OUTTAB                     = GT_SFLIGHT
+        IT_FIELDCATALOG               = GT_FCAT2
+      EXCEPTIONS
+        INVALID_PARAMETER_COMBINATION = 1
+        PROGRAM_ERROR                 = 2
+        TOO_MANY_LINES                = 3
+        OTHERS                        = 4
+            .
+    IF SY-SUBRC <> 0.
+*     Implement suitable error handling here
+    ENDIF.
+
+  ENDMETHOD.
+
+  METHOD MAIN.
+
+    SET_FCAT( ).
+    SET_LAYOUT( ).
+    SHOW_FUNCTIONAL_ALV( ).
+*    SHOW_OO_ALV( ).
+*    CALL SCREEN 9000.
+
+  ENDMETHOD.
+
+  METHOD GET_INSTANCE.
+    IF GO_INSTANCE IS NOT BOUND.
+      CREATE OBJECT GO_INSTANCE.
+    ENDIF.
+    RV_INSTANCE = GO_INSTANCE.
+  ENDMETHOD.
+ENDCLASS.
+
+INITIALIZATION.
+
+  DATA GO_PROG TYPE REF TO LCL_PROG.
+  GO_PROG = LCL_PROG=>GET_INSTANCE( ).
+  GO_PROG->INITIALIZATION( ).
+
+AT SELECTION-SCREEN.
+
+  GO_PROG->AT_SELECTION_SCREEN( ).
+
+START-OF-SELECTION.
+  GO_PROG->MAIN( ).
+
+
+*&---------------------------------------------------------------------*
+*& Module STATUS_9000 OUTPUT
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+MODULE STATUS_9000 OUTPUT.
+
+ SET PF-STATUS SY-DYNNR.
+ SET TITLEBAR SY-DYNNR WITH TEXT-001.
+
+
+ IF GO_PROG->GO_CONTAINER_SCARR IS NOT BOUND AND
+    GO_PROG->GO_CONTAINER_SFLIGHT IS NOT BOUND.
+
+   GO_PROG->INIT_CONTAINER( ).
+   GO_PROG->SHOW_OO_ALV( ).
+   GO_PROG->SHOW_OO_ALV2( ).
+
+ ENDIF.
+
+ENDMODULE.
+
+*&---------------------------------------------------------------------*
+*&      Module  USER_COMMAND_9000  INPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE USER_COMMAND_9000 INPUT.
+
+ENDMODULE.
+
+*&---------------------------------------------------------------------*
+*&      Module  ON_EXIT_9000  INPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE ON_EXIT_9000 INPUT.
+
+  CASE SY-UCOMM.
+    WHEN '&ZBACK' OR '&ZEXIT'.
+      LEAVE TO SCREEN 0.
+    WHEN '&ZEND'.
+      LEAVE PROGRAM.
+    WHEN OTHERS.
+  ENDCASE.
+
+ENDMODULE.

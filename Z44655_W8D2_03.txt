@@ -1,0 +1,106 @@
+*&---------------------------------------------------------------------*
+*& Report Z44655_W8D2_03
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT Z44655_W8D2_03.
+
+DATA GV_CARRID TYPE S_CARRID.
+ZHDCL_HALV_FACTORY=>GET_HALV( VALUE #( TYPE      = 'HALV'
+                                       DDIC_TYPE = 'SCARR' ) )->DISPLAY( ).
+
+FORM FRM_9000_HANDLE_ON_PBO USING PO_HALV      TYPE REF TO ZHDCL_HALV_PARENT
+                         CHANGING CT_ALV_TABLE TYPE STANDARD TABLE.
+
+  DATA(LT_FIELDCAT) = PO_HALV->GET_FIELDCAT( ).
+
+  IF LINE_EXISTS( LT_FIELDCAT[ FIELDNAME = 'CARRID' ] ).
+
+    LT_FIELDCAT[ FIELDNAME = 'CARRID' ]-HOTSPOT = ABAP_TRUE.
+
+  ENDIF.
+
+  PO_HALV->SET_FIELDCAT( LT_FIELDCAT ).
+  PO_HALV->REFRESH( ).
+
+ENDFORM.
+
+* ALV####
+FORM FRM_9000_HANDLE_RETRIEVE USING PV_DDIC_TYPE  TYPE TABNAME
+                           CHANGING CT_ALV_TABLE  TYPE STANDARD TABLE.
+
+  SELECT *
+    FROM (PV_DDIC_TYPE)
+    INTO CORRESPONDING FIELDS OF TABLE CT_ALV_TABLE.
+
+ENDFORM.
+
+FORM FRM_9000_HANDLE_HOTSPOT_CLICK USING PO_HALV       TYPE REF TO ZHDCL_HALV_PARENT
+                                         PS_ROW        TYPE LVC_S_ROW
+                                         PS_COLUMN     TYPE LVC_S_COL
+                                         PS_SUB_ROW    TYPE LVC_S_ROID
+                                CHANGING CT_ALV_TABLE  TYPE STANDARD TABLE.
+
+  IF PS_COLUMN-FIELDNAME = 'CARRID'.
+    PERFORM FRM_OPEN_SBOOK USING 'HALV_POPUP'
+                                 PS_ROW
+                                 PS_COLUMN
+                        CHANGING CT_ALV_TABLE.
+  ENDIF.
+ENDFORM.
+
+FORM FRM_GET_SBOOK USING PV_DDIC_TYPE  TYPE TABNAME
+                CHANGING CT_ALV_TABLE  TYPE STANDARD TABLE.
+
+  SELECT *
+    FROM (PV_DDIC_TYPE)
+    INTO CORRESPONDING FIELDS OF TABLE CT_ALV_TABLE
+   WHERE CARRID = GV_CARRID.
+
+ENDFORM.
+
+FORM FRM_9000_HANDLE_DOUBLE_CLICK USING PO_HALV      TYPE REF TO ZHDCL_HALV_PARENT
+                                        PS_ROW       TYPE LVC_S_ROW
+                                        PS_COLUMN    TYPE LVC_S_COL
+                               CHANGING CT_ALV_TABLE TYPE STANDARD TABLE.
+
+  PERFORM FRM_OPEN_SBOOK USING 'HALV'
+                               PS_ROW
+                               PS_COLUMN
+                      CHANGING CT_ALV_TABLE.
+
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form FRM_OPEN_SBOOK
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*&      --> P_
+*&      --> PS_ROW
+*&      --> PS_COLUMN
+*&      <-- CT_ALV_TABLE
+*&---------------------------------------------------------------------*
+FORM FRM_OPEN_SBOOK  USING    PV_HALV_TYPE TYPE ZHDE_HALV_TYPE
+                              PS_ROW     TYPE LVC_S_ROW
+                              PS_COLUMN  TYPE LVC_S_COL
+                     CHANGING CT_ALV_TABLE TYPE STANDARD TABLE.
+
+  READ TABLE CT_ALV_TABLE ASSIGNING FIELD-SYMBOL(<LS_LINE>) INDEX PS_ROW-INDEX.
+
+  IF SY-SUBRC = 0.
+
+    ASSIGN COMPONENT 'CARRID' OF STRUCTURE <LS_LINE> TO FIELD-SYMBOL(<LV_CARRID>).
+    IF <LV_CARRID> IS ASSIGNED.
+      GV_CARRID = <LV_CARRID>.
+    ENDIF.
+
+  ENDIF.
+
+  DATA(LO_SBOOK) = ZHDCL_HALV_FACTORY=>GET_HALV( VALUE #( TYPE            = PV_HALV_TYPE
+                                                          DDIC_TYPE       = 'SBOOK'
+                                                          HANDLE_RETRIEVE = 'FRM_GET_SBOOK'
+                                                           ) ).
+  LO_SBOOK->DISPLAY( ).
+
+ENDFORM.

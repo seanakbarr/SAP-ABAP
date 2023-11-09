@@ -1,0 +1,18 @@
+*&---------------------------------------------------------------------*
+*& Report Z44655_W7D2_02
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT Z44655_W7D2_02.
+
+DATA GX_ERROR TYPE REF TO ZCX_ZERODIVIDE_44655.
+DATA GX_ERROR_SY TYPE REF TO CX_SY_ZERODIVIDE.
+
+TRY.
+  RAISE EXCEPTION TYPE ZCX_ZERODIVIDE_44655.
+    DATA(GV_RESULT) = 1 / 0.
+  CATCH CX_SY_ZERODIVIDE INTO GX_ERROR_SY.
+    MESSAGE GX_ERROR_SY->GET_TEXT( ) TYPE 'S' DISPLAY LIKE 'E'.
+  CATCH ZCX_ZERODIVIDE_44655 INTO GX_ERROR.
+    MESSAGE GX_ERROR->GET_TEXT( ) TYPE 'S' DISPLAY LIKE 'E'.
+ENDTRY.

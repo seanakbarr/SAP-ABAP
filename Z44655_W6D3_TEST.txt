@@ -1,0 +1,148 @@
+*&---------------------------------------------------------------------*
+*& Report Z44655_W6D3_TEST
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT Z44655_W6D3_TEST.
+
+TYPES: BEGIN OF TS_MAIN,
+         PO_NUMBER TYPE EKKO-EBELN,
+         VENDOR    TYPE EKKO-LIFNR,
+         PURCH_ORG TYPE EKKO-EKORG,
+         PUR_GROUP TYPE EKKO-EKGRP,
+         COMP_CODE TYPE EKKO-BUKRS,
+       END OF TS_MAIN.
+
+DATA GS_MAIN TYPE TS_MAIN.
+
+TYPES: BEGIN OF TS_TAB,
+         ZBOX      TYPE XFELD,
+         PO_NUMBER TYPE EKPO-EBELN,
+         PO_ITEM   TYPE EKPO-EBELP,
+         MATERIAL  TYPE EKPO-MATNR,
+         MAKTX     TYPE MAKT-MAKTX,
+         QUANTITY  TYPE EKPO-MENGE,
+         PO_UNIT   TYPE EKPO-MEINS,
+         NETPR     TYPE EKPO-NETPR,
+         PLANT     TYPE EKPO-WERKS,
+       END OF TS_TAB.
+
+DATA GT_TAB TYPE STANDARD TABLE OF TS_TAB.
+DATA GS_TAB TYPE TS_TAB.
+
+DATA: GS_MHEADER  TYPE BAPIMEPOHEADER,
+      GS_MHEADERX TYPE BAPIMEPOHEADERX,
+      GT_ITEM     TYPE STANDARD TABLE OF BAPIMEPOITEM,
+      GS_ITEM     TYPE BAPIMEPOITEM,
+      GT_ITEMX    TYPE STANDARD TABLE OF BAPIMEPOITEMX,
+      GS_ITEMX    TYPE BAPIMEPOITEMX,
+      GT_RETURN   TYPE STANDARD TABLE OF BAPIRET2,
+      GS_RETURN   TYPE BAPIRET2.
+
+START-OF-SELECTION.
+  CALL SCREEN '9004'.
+
+*&---------------------------------------------------------------------*
+*& Module STATUS_9004 OUTPUT
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+MODULE STATUS_9004 OUTPUT.
+
+  SET PF-STATUS SY-DYNNR.
+  SET TITLEBAR SY-DYNNR WITH 'Purchase Order for Sean Akbar Ryanto'.
+
+ENDMODULE.
+*&---------------------------------------------------------------------*
+*&      Module  USER_COMMAND_9004  INPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE USER_COMMAND_9004 INPUT.
+  CASE SY-UCOMM.
+    WHEN '&ZSAVE'.
+
+      CLEAR GS_MHEADER.
+      MOVE-CORRESPONDING GS_MAIN TO GS_MHEADER.
+      GS_MHEADER-DOC_TYPE = 'NB'.
+
+      CLEAR GS_MHEADERX.
+      GS_MHEADERX-COMP_CODE = 'X'.
+      GS_MHEADERX-DOC_TYPE = 'X'.
+      GS_MHEADERX-VENDOR = 'X'.
+      GS_MHEADERX-PURCH_ORG = 'X'.
+      GS_MHEADERX-PUR_GROUP = 'X'.
+
+      LOOP AT GT_TAB INTO GS_TAB.
+
+        MOVE-CORRESPONDING GS_TAB TO GS_ITEM.
+        APPEND GS_ITEM TO GT_ITEM.
+
+        CLEAR GS_ITEMX.
+        GS_ITEMX-PO_ITEM = GS_TAB-PO_ITEM.
+        GS_ITEMX-PO_ITEMX = 'X'.
+        GS_ITEMX-MATERIAL = 'X'.
+        GS_ITEMX-QUANTITY = 'X'.
+        GS_ITEMX-PO_UNIT = 'X'.
+        GS_ITEMX-PLANT = 'X'.
+        APPEND GS_ITEMX TO GT_ITEMX.
+
+      ENDLOOP.
+
+      CLEAR GS_RETURN.
+      CALL FUNCTION 'BAPI_PO_CREATE1'
+        EXPORTING
+          POHEADER         = GS_MHEADER
+          POHEADERX        = GS_MHEADERX
+        IMPORTING
+          EXPPURCHASEORDER = GS_MAIN-PO_NUMBER
+        TABLES
+          RETURN           = GT_RETURN
+          POITEM           = GT_ITEM
+          POITEMX          = GT_ITEMX.
+
+      IF NOT LINE_EXISTS( GT_RETURN[ TYPE = 'E' ] )
+        AND NOT LINE_EXISTS( GT_RETURN[ TYPE = 'A' ] )
+        AND NOT LINE_EXISTS( GT_RETURN[ TYPE = 'X' ] ).
+
+        CLEAR: GT_RETURN,
+               GS_RETURN.
+        CALL FUNCTION 'BAPI_TRANSACTION_COMMIT'
+          IMPORTING
+            RETURN = GS_RETURN.
+        MESSAGE 'Successfully Committed : ' && GS_MAIN-PO_NUMBER TYPE 'S'.
+
+        GS_TAB-PO_NUMBER = GS_MAIN-PO_NUMBER.
+        MODIFY GT_TAB FROM GS_TAB TRANSPORTING PO_NUMBER WHERE PO_NUMBER IS INITIAL.
+
+      ELSE.
+
+        CLEAR: GT_RETURN,
+               GS_RETURN.
+        CALL FUNCTION 'BAPI_TRANSACTION_ROLLBACK'
+          IMPORTING
+            RETURN = GS_RETURN.
+        MESSAGE 'Failed to Committed, Rollback the Data' TYPE 'E'.
+
+      ENDIF.
+
+    WHEN OTHERS.
+  ENDCASE.
+
+ENDMODULE.
+*&---------------------------------------------------------------------*
+*&      Module  ON_EXIT_9004  INPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE ON_EXIT_9004 INPUT.
+  CASE SY-UCOMM.
+    WHEN '&ZBACK' OR '&ZEND'.
+      LEAVE TO SCREEN 0.
+    WHEN '&ZEXIT'.
+      LEAVE PROGRAM.
+    WHEN OTHERS.
+  ENDCASE.
+ENDMODULE.
+
+INCLUDE Z44655_W6D3_TEST_TC.

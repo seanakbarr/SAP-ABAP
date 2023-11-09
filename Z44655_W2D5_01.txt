@@ -1,0 +1,83 @@
+*&---------------------------------------------------------------------*
+*& Report Z44655_W2D5_01
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT Z44655_W2D5_01.
+
+TYPES: BEGIN OF ts_makt,
+                matnr TYPE mara-matnr,
+                spras TYPE sy-langu,
+                makt TYPE makt-maktx,
+       END OF ts_makt.
+
+TYPES tt_makt TYPE STANDARD TABLE OF ts_makt.
+
+DATA: gt_makt TYPE tt_makt,
+      gs_makt LIKE LINE OF gt_makt.
+
+SELECT *
+       FROM mara
+       INNER JOIN makt
+               ON mara~matnr = makt~matnr
+             INTO CORRESPONDING FIELDS OF TABLE gt_makt.
+IF sy-subrc <> 0.
+  MESSAGE 'No data found!' TYPE 'E'.
+ENDIF.
+
+DATA: gt_fcat TYPE lvc_t_fcat,
+      gs_fcat LIKE LINE OF gt_fcat.
+
+CLEAR gs_fcat.
+gs_fcat-fieldname = 'MATNR'.
+gs_fcat-coltext = 'Material Number'.
+APPEND gs_fcat TO gt_fcat.
+
+CLEAR gs_fcat.
+gs_fcat-fieldname = 'SPRAS'.
+gs_fcat-coltext = 'Language Key'.
+APPEND gs_fcat TO gt_fcat.
+
+CLEAR gs_fcat.
+gs_fcat-fieldname = 'MAKTX'.
+gs_fcat-coltext = 'Material Description'.
+APPEND gs_fcat TO gt_fcat.
+
+
+* ALV
+CALL FUNCTION 'LVC_FIELDCATALOG_MERGE'
+ EXPORTING
+   I_STRUCTURE_NAME             = 'makt'
+ CHANGING
+    ct_fieldcat                 = gt_fcat
+ EXCEPTIONS
+   INCONSISTENT_INTERFACE       = 1
+   PROGRAM_ERROR                = 2
+   OTHERS                       = 3.
+
+*CALL FUNCTION 'LVC_FIELDCATALOG_MERGE'
+* EXPORTING
+*   I_STRUCTURE_NAME             = 'mara'
+* CHANGING
+*    ct_fieldcat                 = gt_fcat
+* EXCEPTIONS
+*   INCONSISTENT_INTERFACE       = 1
+*   PROGRAM_ERROR                = 2
+*   OTHERS                       = 3.
+
+IF sy-subrc <> 0.
+*  Implement suitable error handling here
+ENDIF.
+
+CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY_LVC'
+  EXPORTING
+    it_fieldcat_lvc = gt_fcat
+  TABLES
+    t_outtab        = gt_makt
+  EXCEPTIONS
+    program_error   = 1
+    OTHERS          = 2.
+.
+IF sy-subrc <> 0.
+*  Implement suitable error handling here
+ENDIF.

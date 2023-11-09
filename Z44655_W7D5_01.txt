@@ -1,0 +1,540 @@
+*&---------------------------------------------------------------------*
+*& Report Z44655_W7D5_01
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT Z44655_W7D5_01.
+
+CLASS LCL_PROG DEFINITION
+  CREATE PRIVATE.
+
+  PUBLIC SECTION.
+
+    TYPES: TY_SCARR  TYPE SCARR,
+           TTY_SCARR TYPE STANDARD TABLE OF TY_SCARR.
+
+    TYPES: TY_SPFLI  TYPE SPFLI,
+           TTY_SPFLI TYPE STANDARD TABLE OF TY_SPFLI.
+
+    TYPES: TY_SFLIGHT  TYPE SFLIGHT,
+           TTY_SFLIGHT TYPE STANDARD TABLE OF TY_SFLIGHT.
+
+    TYPES: TY_SBOOK  TYPE SBOOK,
+           TTY_SBOOK TYPE STANDARD TABLE OF TY_SBOOK.
+
+    DATA GV_IS_FIRST_CALL TYPE ABAP_BOOL VALUE ABAP_TRUE.
+    DATA GV_IS_FIRST_CALL2 TYPE ABAP_BOOL VALUE ABAP_TRUE.
+
+    DATA: GT_SCARR TYPE TTY_SCARR,
+          GS_SCARR TYPE TY_SCARR.
+
+    DATA: GT_SPFLI TYPE TTY_SPFLI,
+          GS_SPFLI TYPE TY_SPFLI.
+
+    DATA: GT_SFLIGHT TYPE TTY_SFLIGHT,
+          GS_SFLIGHT TYPE TY_SFLIGHT.
+
+    DATA: GT_SBOOK TYPE TTY_SBOOK,
+          GS_SBOOK TYPE TY_SBOOK.
+
+    DATA GV_CARRID TYPE S_CARR_ID.
+
+    METHODS INITIALIZATION.
+    METHODS AT_SELECTION_SCREEN.
+    METHODS GET_DATA1.
+    METHODS GET_DATA2.
+    METHODS GET_DATA3.
+    METHODS GET_DATA4.
+
+    METHODS GET_FCAT
+      IMPORTING
+        IV_TABNAME     TYPE TABNAME
+      RETURNING
+        VALUE(RV_FCAT) TYPE LVC_T_FCAT.
+
+    METHODS GET_LAYOUT
+      IMPORTING
+        IV_BOX_NAME      TYPE C OPTIONAL
+        IV_STYLE_TAB     TYPE C OPTIONAL
+        IV_COLOR_TAB     TYPE C OPTIONAL
+        IV_TITLE         TYPE C OPTIONAL
+      RETURNING
+        VALUE(RV_LAYOUT) TYPE LVC_S_LAYO.
+
+    METHODS GET_CONTAINER
+      IMPORTING
+        IV_NAME             TYPE C
+      RETURNING
+        VALUE(RO_CONTAINER) TYPE REF TO CL_GUI_CUSTOM_CONTAINER.
+
+    METHODS GET_ALV
+      IMPORTING
+        IO_CONTAINER  TYPE REF TO CL_GUI_CUSTOM_CONTAINER
+      RETURNING
+        VALUE(RO_ALV) TYPE REF TO CL_GUI_ALV_GRID.
+
+    METHODS SHOW_ALV1.
+    METHODS SHOW_ALV2
+      RETURNING
+        VALUE(RO_CON) TYPE REF TO CL_GUI_CUSTOM_CONTAINER.
+
+    METHODS SHOW_ALV3
+      RETURNING
+        VALUE(RO_CON) TYPE REF TO CL_GUI_CUSTOM_CONTAINER.
+
+    METHODS SHOW_ALV4
+      RETURNING
+        VALUE(RO_CON) TYPE REF TO CL_GUI_CUSTOM_CONTAINER.
+
+    METHODS MAIN.
+
+    CLASS-METHODS GET_INSTANCE
+      RETURNING VALUE(RV_INSTANCE) TYPE REF TO LCL_PROG.
+
+  PROTECTED SECTION.
+
+  PRIVATE SECTION.
+
+    METHODS CONSTRUCTOR.
+
+    CLASS-DATA GO_INSTANCE TYPE REF TO LCL_PROG.
+
+ENDCLASS.
+
+CLASS LCL_ALV_EVENT_SCARR DEFINITION.
+
+  PUBLIC SECTION.
+
+    METHODS CONSTRUCTOR
+      IMPORTING
+        IO_GRID TYPE REF TO CL_GUI_ALV_GRID.
+
+    METHODS ON_DOUBLE_CLICK
+      FOR EVENT DOUBLE_CLICK OF CL_GUI_ALV_GRID
+      IMPORTING
+        E_ROW
+        E_COLUMN
+        ES_ROW_NO.
+
+  PRIVATE SECTION.
+      DATA GO_GRID TYPE REF TO CL_GUI_ALV_GRID.
+
+ENDCLASS.
+
+INITIALIZATION.
+
+  DATA GO_PROG TYPE REF TO LCL_PROG.
+  GO_PROG = LCL_PROG=>GET_INSTANCE( ).
+  GO_PROG->INITIALIZATION( ).
+
+AT SELECTION-SCREEN.
+
+  GO_PROG->AT_SELECTION_SCREEN( ).
+
+START-OF-SELECTION.
+  GO_PROG->MAIN( ).
+
+CLASS LCL_PROG IMPLEMENTATION.
+
+  METHOD CONSTRUCTOR.
+
+  ENDMETHOD.
+
+  METHOD INITIALIZATION.
+
+
+  ENDMETHOD.
+
+  METHOD AT_SELECTION_SCREEN.
+
+
+  ENDMETHOD.
+
+  METHOD GET_DATA1.
+
+    SELECT *
+      FROM SCARR
+     INTO TABLE GT_SCARR.
+
+    IF SY-SUBRC <> 0.
+      MESSAGE 'No data SCARR CARRID found!' TYPE 'E' DISPLAY LIKE 'I'.
+    ENDIF.
+
+  ENDMETHOD.
+
+  METHOD GET_DATA2.
+
+    SELECT *
+      FROM SPFLI
+     INTO TABLE GT_SPFLI
+    WHERE CARRID = GO_PROG->GV_CARRID.
+
+    IF SY-SUBRC <> 0.
+      MESSAGE 'No data SPFLI CARRID found!' TYPE 'E' DISPLAY LIKE 'I'.
+    ENDIF.
+
+  ENDMETHOD.
+
+  METHOD GET_DATA3.
+
+    SELECT *
+      FROM SFLIGHT
+     INTO TABLE GT_SFLIGHT
+    WHERE CARRID = GO_PROG->GV_CARRID.
+
+    IF SY-SUBRC <> 0.
+      MESSAGE 'No data SFLIGHT CARRID found!' TYPE 'E' DISPLAY LIKE 'I' .
+    ENDIF.
+
+  ENDMETHOD.
+
+  METHOD GET_DATA4.
+
+    SELECT *
+      FROM SBOOK
+     INTO TABLE GT_SBOOK
+    WHERE CARRID = GO_PROG->GV_CARRID.
+
+    IF SY-SUBRC <> 0.
+      MESSAGE 'No data SBOOK CARRID found!' TYPE 'E' DISPLAY LIKE 'I'.
+    ENDIF.
+
+  ENDMETHOD.
+
+  METHOD GET_FCAT.
+
+    CALL FUNCTION 'LVC_FIELDCATALOG_MERGE'
+      EXPORTING
+        I_STRUCTURE_NAME       = IV_TABNAME
+      CHANGING
+        CT_FIELDCAT            = RV_FCAT
+      EXCEPTIONS
+        INCONSISTENT_INTERFACE = 1
+        PROGRAM_ERROR          = 2
+        OTHERS                 = 3.
+    IF SY-SUBRC <> 0.
+* Implement suitable error handling here
+    ENDIF.
+
+  ENDMETHOD.
+
+  METHOD GET_LAYOUT.
+
+    RV_LAYOUT-CWIDTH_OPT = ABAP_TRUE.
+    RV_LAYOUT-ZEBRA      = ABAP_TRUE.
+    RV_LAYOUT-BOX_FNAME  = IV_BOX_NAME.
+    RV_LAYOUT-STYLEFNAME = IV_STYLE_TAB.
+    RV_LAYOUT-CTAB_FNAME = IV_COLOR_TAB.
+    RV_LAYOUT-GRID_TITLE = IV_TITLE.
+
+  ENDMETHOD.
+
+  METHOD GET_CONTAINER.
+
+    CREATE OBJECT RO_CONTAINER
+      EXPORTING
+        CONTAINER_NAME = IV_NAME.
+
+  ENDMETHOD.
+
+  METHOD GET_ALV.
+
+    CREATE OBJECT RO_ALV
+      EXPORTING
+        I_PARENT = IO_CONTAINER.
+
+  ENDMETHOD.
+
+  METHOD SHOW_ALV1.
+
+    GET_DATA1( ).
+
+    DATA LO_CONTAINER TYPE REF TO CL_GUI_CUSTOM_CONTAINER.
+    DATA LO_GRID TYPE REF TO CL_GUI_ALV_GRID.
+
+    LO_CONTAINER = GET_CONTAINER( 'SCARR' ).
+    LO_GRID      = GET_ALV( LO_CONTAINER ).
+
+    DATA LO_EVENT TYPE REF TO LCL_ALV_EVENT_SCARR.
+    CREATE OBJECT LO_EVENT
+      EXPORTING
+        IO_GRID = LO_GRID.
+
+    SET HANDLER LO_EVENT->ON_DOUBLE_CLICK FOR LO_GRID.
+
+    DATA LT_FCAT TYPE LVC_T_FCAT.
+    LT_FCAT = GET_FCAT( 'SCARR' ).
+
+    CALL METHOD LO_GRID->SET_TABLE_FOR_FIRST_DISPLAY
+      EXPORTING
+        I_SAVE                        = 'A'
+        I_DEFAULT                     = 'X'
+        IS_LAYOUT                     = GET_LAYOUT( IV_TITLE = 'SCARR Table' )
+      CHANGING
+        IT_OUTTAB                     = GT_SCARR
+        IT_FIELDCATALOG               = LT_FCAT
+      EXCEPTIONS
+        INVALID_PARAMETER_COMBINATION = 1
+        PROGRAM_ERROR                 = 2
+        TOO_MANY_LINES                = 3
+        OTHERS                        = 4.
+    IF SY-SUBRC <> 0.
+*     Implement suitable error handling here
+    ENDIF.
+
+
+  ENDMETHOD.
+
+  METHOD SHOW_ALV2.
+
+    GET_DATA2( ).
+
+    DATA LO_CONTAINER TYPE REF TO CL_GUI_CUSTOM_CONTAINER.
+    DATA LO_GRID TYPE REF TO CL_GUI_ALV_GRID.
+
+    LO_CONTAINER = GET_CONTAINER( 'SPFLI' ).
+    LO_GRID      = GET_ALV( LO_CONTAINER ).
+
+    DATA LO_EVENT TYPE REF TO LCL_ALV_EVENT_SCARR.
+    CREATE OBJECT LO_EVENT
+      EXPORTING
+        IO_GRID = LO_GRID.
+
+    SET HANDLER LO_EVENT->ON_DOUBLE_CLICK FOR LO_GRID.
+
+    DATA LT_FCAT TYPE LVC_T_FCAT.
+    LT_FCAT = GET_FCAT( 'SPFLI' ).
+
+    CALL METHOD LO_GRID->SET_TABLE_FOR_FIRST_DISPLAY
+      EXPORTING
+        I_SAVE                        = 'A'
+        I_DEFAULT                     = 'X'
+        IS_LAYOUT                     = GET_LAYOUT( IV_TITLE = 'SPFLI Table' )
+      CHANGING
+        IT_OUTTAB                     = GT_SPFLI
+        IT_FIELDCATALOG               = LT_FCAT
+      EXCEPTIONS
+        INVALID_PARAMETER_COMBINATION = 1
+        PROGRAM_ERROR                 = 2
+        TOO_MANY_LINES                = 3
+        OTHERS                        = 4.
+    IF SY-SUBRC <> 0.
+*     Implement suitable error handling here
+    ENDIF.
+
+    RO_CON = LO_CONTAINER.
+
+  ENDMETHOD.
+
+  METHOD SHOW_ALV3.
+
+    GET_DATA3( ).
+
+    DATA LO_CONTAINER TYPE REF TO CL_GUI_CUSTOM_CONTAINER.
+    DATA LO_GRID TYPE REF TO CL_GUI_ALV_GRID.
+
+    LO_CONTAINER = GET_CONTAINER( 'SFLIGHT' ).
+    LO_GRID      = GET_ALV( LO_CONTAINER ).
+
+    DATA LO_EVENT TYPE REF TO LCL_ALV_EVENT_SCARR.
+    CREATE OBJECT LO_EVENT
+      EXPORTING
+        IO_GRID = LO_GRID.
+
+    SET HANDLER LO_EVENT->ON_DOUBLE_CLICK FOR LO_GRID.
+
+    DATA LT_FCAT TYPE LVC_T_FCAT.
+    LT_FCAT = GET_FCAT( 'SFLIGHT' ).
+
+    CALL METHOD LO_GRID->SET_TABLE_FOR_FIRST_DISPLAY
+      EXPORTING
+        I_SAVE                        = 'A'
+        I_DEFAULT                     = 'X'
+        IS_LAYOUT                     = GET_LAYOUT( IV_TITLE = 'SFLIGHT Table' )
+      CHANGING
+        IT_OUTTAB                     = GT_SFLIGHT
+        IT_FIELDCATALOG               = LT_FCAT
+      EXCEPTIONS
+        INVALID_PARAMETER_COMBINATION = 1
+        PROGRAM_ERROR                 = 2
+        TOO_MANY_LINES                = 3
+        OTHERS                        = 4.
+    IF SY-SUBRC <> 0.
+*     Implement suitable error handling here
+    ENDIF.
+
+    RO_CON = LO_CONTAINER.
+
+  ENDMETHOD.
+
+  METHOD SHOW_ALV4.
+
+    GET_DATA4( ).
+
+    DATA LO_CONTAINER TYPE REF TO CL_GUI_CUSTOM_CONTAINER.
+    DATA LO_GRID TYPE REF TO CL_GUI_ALV_GRID.
+
+    LO_CONTAINER = GET_CONTAINER( 'SBOOK' ).
+    LO_GRID      = GET_ALV( LO_CONTAINER ).
+
+    DATA LO_EVENT TYPE REF TO LCL_ALV_EVENT_SCARR.
+    CREATE OBJECT LO_EVENT
+      EXPORTING
+        IO_GRID = LO_GRID.
+*
+    SET HANDLER LO_EVENT->ON_DOUBLE_CLICK FOR LO_GRID.
+
+    DATA LT_FCAT TYPE LVC_T_FCAT.
+    LT_FCAT = GET_FCAT( 'SBOOK' ).
+
+    CALL METHOD LO_GRID->SET_TABLE_FOR_FIRST_DISPLAY
+      EXPORTING
+        I_SAVE                        = 'A'
+        I_DEFAULT                     = 'X'
+        IS_LAYOUT                     = GET_LAYOUT( IV_TITLE = 'SBOOK Table' )
+      CHANGING
+        IT_OUTTAB                     = GT_SBOOK
+        IT_FIELDCATALOG               = LT_FCAT
+      EXCEPTIONS
+        INVALID_PARAMETER_COMBINATION = 1
+        PROGRAM_ERROR                 = 2
+        TOO_MANY_LINES                = 3
+        OTHERS                        = 4.
+    IF SY-SUBRC <> 0.
+*     Implement suitable error handling here
+    ENDIF.
+
+    RO_CON = LO_CONTAINER.
+
+  ENDMETHOD.
+
+  METHOD MAIN.
+
+    CALL SCREEN 9000.
+
+  ENDMETHOD.
+
+  METHOD GET_INSTANCE.
+
+    IF GO_INSTANCE IS NOT BOUND.
+      CREATE OBJECT GO_INSTANCE.
+    ENDIF.
+    RV_INSTANCE = GO_INSTANCE.
+
+  ENDMETHOD.
+
+ENDCLASS.
+
+*&---------------------------------------------------------------------*
+*& Module STATUS_9000 OUTPUT
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+MODULE STATUS_9000 OUTPUT.
+
+  SET PF-STATUS SY-DYNNR.
+  SET TITLEBAR SY-DYNNR WITH TEXT-001.
+
+  IF GO_PROG->GV_IS_FIRST_CALL = ABAP_TRUE.
+
+    GO_PROG->SHOW_ALV1( ).
+
+    GO_PROG->GV_IS_FIRST_CALL = ABAP_FALSE.
+
+  ENDIF.
+
+ENDMODULE.
+
+*&---------------------------------------------------------------------*
+*&      Module  ON_EXIT_9000  INPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE ON_EXIT_9000 INPUT.
+
+  CASE SY-UCOMM.
+    WHEN '&ZBACK' OR '&ZEXIT'.
+      LEAVE TO SCREEN 0.
+    WHEN '&ZEND'.
+      LEAVE PROGRAM.
+    WHEN OTHERS.
+  ENDCASE.
+
+ENDMODULE.
+
+*&---------------------------------------------------------------------*
+*&      Module  ON_EXIT_9001  INPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE ON_EXIT_9001 INPUT.
+
+  CASE SY-UCOMM.
+    WHEN '&ZBACK' OR '&ZEXIT'.
+      LEAVE TO SCREEN 0.
+    WHEN '&ZEND'.
+      LEAVE PROGRAM.
+    WHEN OTHERS.
+  ENDCASE.
+
+ENDMODULE.
+
+*&---------------------------------------------------------------------*
+*&      Module  USER_COMMAND_9000  INPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE USER_COMMAND_9000 INPUT.
+
+ENDMODULE.
+
+*&---------------------------------------------------------------------*
+*& Module STATUS_9001 OUTPUT
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+MODULE STATUS_9001 OUTPUT.
+
+  DATA LV_TITLE TYPE STRING.
+  LV_TITLE = 'Data with CARRID:  ' && GO_PROG->GS_SCARR-CARRID.
+  SET PF-STATUS '9001'.
+  SET TITLEBAR '9001' WITH LV_TITLE.
+
+  IF GO_PROG->GV_IS_FIRST_CALL2 = ABAP_TRUE.
+
+    DATA(GO_CON1) = GO_PROG->SHOW_ALV2( ).
+    DATA(GO_CON2) = GO_PROG->SHOW_ALV3( ).
+    DATA(GO_CON3) = GO_PROG->SHOW_ALV4( ).
+
+  ENDIF.
+
+ENDMODULE.
+
+CLASS LCL_ALV_EVENT_SCARR IMPLEMENTATION.
+
+    METHOD CONSTRUCTOR.
+      GO_GRID = IO_GRID.
+    ENDMETHOD.
+
+    METHOD ON_DOUBLE_CLICK.
+
+*      CASE E_COLUMN-FIELDNAME.
+*        WHEN 'CARRID'.
+          READ TABLE GO_PROG->GT_SCARR INTO GO_PROG->GS_SCARR INDEX ES_ROW_NO-ROW_ID.
+          IF SY-SUBRC = 0.
+            GO_PROG->GV_CARRID = GO_PROG->GS_SCARR-CARRID.
+            CALL SCREEN '9001'.
+          ENDIF.
+
+          GO_CON1->FREE( ).
+          GO_CON2->FREE( ).
+          GO_CON3->FREE( ).
+*        WHEN OTHERS.
+*      ENDCASE.
+
+    ENDMETHOD.
+
+ENDCLASS.
+
+*&SPWizard: Data incl. inserted by SP Wizard. DO NOT CHANGE THIS LINE!
+INCLUDE Z44655_W7D5_01_TAB .

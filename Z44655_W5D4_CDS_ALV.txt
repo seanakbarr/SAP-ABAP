@@ -1,0 +1,32 @@
+*&---------------------------------------------------------------------*
+*& Report z44655_w5d4_cds_alv
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT Z44655_W5D4_CDS_ALV.
+
+TABLES: EKPO.
+PARAMETERS: P_EBELN TYPE EBELN DEFAULT '4500000000'.
+
+SELECT-OPTIONS: S_EBELP FOR EKPO-EBELP.
+
+SELECT *
+  FROM ZVALV_002_44655( P_EBELN = @P_EBELN,
+                        P_EBELP_L = @S_EBELP-LOW,
+                        P_EBELP_H = @S_EBELP-HIGH )
+  INTO TABLE @DATA(GT_ALV).
+
+DATA LT_FCAT TYPE LVC_T_FCAT.
+CALL FUNCTION 'LVC_FIELDCATALOG_MERGE'
+    EXPORTING
+        I_STRUCTURE_NAME = 'ZVALV_002_44655'
+    CHANGING
+        CT_FIELDCAT = LT_FCAT.
+
+DELETE LT_FCAT WHERE FIELDNAME = '.NODE1'.
+
+CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY_LVC'
+    EXPORTING
+        IT_FIELDCAT_LVC = LT_FCAT
+    TABLES
+    T_OUTTAB             = GT_ALV.

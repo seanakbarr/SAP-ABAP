@@ -1,0 +1,268 @@
+*&---------------------------------------------------------------------*
+*& Report Z44655_W2D5_EXAM_ANSWER
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT z44655_w3d1_01.
+
+TABLES: ekko,
+        ekpo.
+
+PARAMETERS: p_werks TYPE ekpo-werks OBLIGATORY.
+SELECT-OPTIONS: s_ekorg FOR ekko-ekorg DEFAULT '1710',
+                s_ebeln FOR ekko-ebeln,
+                s_matnr FOR ekpo-matnr.
+
+TYPES: BEGIN OF ts_po,
+         box        TYPE c LENGTH 1,                           " Step 1: Define column for checkbox "
+         zicon      TYPE icon-id,                              " Step 1: Define column for icon "
+         cell_color TYPE lvc_t_scol,                           " Step 1: To give a colour to colum "
+         cell_style TYPE lvc_t_styl,                           " Step 1: To give an access to edit only one data in a column "
+         ebeln      TYPE ekko-ebeln,
+         ebelp      TYPE ekpo-ebelp,
+         ekorg      TYPE ekko-ekorg,
+         lifnr      TYPE ekko-lifnr,
+         name1      TYPE lfa1-name1,
+         werks      TYPE ekpo-werks,
+         matnr      TYPE ekpo-matnr,
+         maktx      TYPE makt-maktx,
+         menge      TYPE ekpo-menge,
+         meins      TYPE ekpo-meins,
+         netwr      TYPE ekpo-netwr,
+         waers      TYPE ekko-waers,
+       END OF ts_po.
+
+TYPES: tt_po TYPE STANDARD TABLE OF ts_po.
+
+DATA:gt_po TYPE tt_po.
+
+INITIALIZATION.
+
+  PERFORM frm_set_default_value.
+
+AT SELECTION-SCREEN.
+
+  PERFORM frm_check_existence USING p_werks.
+
+START-OF-SELECTION.
+
+  PERFORM frm_get_data CHANGING gt_po.
+
+  PERFORM frm_show_alv.
+
+*&---------------------------------------------------------------------*
+*& Form FRM_SET_DEFAULT_VALUE
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM frm_set_default_value .
+
+  DATA ls_matnr LIKE LINE OF s_matnr.
+  ls_matnr-sign   = 'I'.
+  ls_matnr-option = 'EQ'.
+  ls_matnr-low    = '1710'.
+  ls_matnr-high   = ''.
+  APPEND ls_matnr TO s_matnr.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form FRM_CHECK_EXISTENCE
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*&      --> P_WERKS
+*&---------------------------------------------------------------------*
+FORM frm_check_existence  USING    pv_werks.
+
+  DATA lv_werks TYPE ekpo-werks.
+  SELECT SINGLE werks
+    FROM t001w
+    INTO lv_werks
+   WHERE werks = pv_werks.
+  IF sy-subrc <> 0.
+    MESSAGE 'Plant not found!' TYPE 'E'.
+  ENDIF.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form FRM_GET_DATA
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM frm_get_data CHANGING ct_po TYPE tt_po.
+
+  SELECT *
+    FROM ekko
+   INNER JOIN ekpo
+      ON ekko~ebeln = ekpo~ebeln
+    INTO CORRESPONDING FIELDS OF TABLE ct_po
+   WHERE ekpo~werks = p_werks
+     AND ekko~ekorg IN s_ekorg
+     AND ekko~ebeln IN s_ebeln
+     AND ekpo~matnr IN s_matnr.
+  IF sy-subrc <> 0.
+    MESSAGE 'No data found!' TYPE 'E'.
+  ENDIF.
+
+  DATA lt_lfa1 TYPE STANDARD TABLE OF lfa1.
+  SELECT *
+    FROM lfa1
+    INTO CORRESPONDING FIELDS OF TABLE lt_lfa1
+     FOR ALL ENTRIES IN ct_po
+   WHERE lfa1~lifnr = ct_po-lifnr.
+  IF sy-subrc = 0.
+    SORT lt_lfa1.
+  ENDIF.
+
+  DATA lt_makt TYPE STANDARD TABLE OF makt.
+  SELECT *
+    FROM makt
+    INTO CORRESPONDING FIELDS OF TABLE lt_makt
+     FOR ALL ENTRIES IN ct_po
+   WHERE makt~matnr = ct_po-matnr
+     AND makt~spras = sy-langu.
+  IF sy-subrc = 0.
+    SORT lt_makt.
+  ENDIF.
+
+  DATA ls_po TYPE ts_po.
+  DATA ls_lfa1 LIKE LINE OF lt_lfa1.
+  DATA ls_makt LIKE LINE OF lt_makt.
+  DATA ls_cell_color TYPE lvc_s_scol.         " Step 3: Define a Local Structure from lvc_s_col to edit the colour of the column "
+  DATA ls_cell_style TYPE lvc_s_styl.         " Step 3: Define a Local Structure from lvc_s_col to edit only one data of the column "
+  LOOP AT ct_po INTO ls_po.
+
+    DATA(lv_tabix) = sy-tabix.                " Step 4: Define sy-tabix to know the index "
+
+    READ TABLE lt_lfa1 INTO ls_lfa1 WITH KEY lifnr = ls_po-lifnr
+                                    BINARY SEARCH.
+    IF sy-subrc = 0.
+      ls_po-name1 = ls_lfa1-name1.
+      CLEAR ls_lfa1.
+    ENDIF.
+
+    READ TABLE lt_makt INTO ls_makt WITH KEY matnr = ls_po-matnr
+                                BINARY SEARCH.
+    IF sy-subrc = 0.
+      ls_po-maktx = ls_makt-maktx.
+      CLEAR ls_makt.
+    ENDIF.
+
+    ls_po-zicon = '@1C@'.
+
+    " Step 5 "
+    " LVC SCOL "
+    IF lv_tabix = 2.                      " To define the index that we want to use
+      " LVC Scol "
+      CLEAR: ls_cell_color.
+      ls_cell_color-fname = 'LIFNR'.
+      ls_cell_color-color-col = '1'.      " color code 1-7, if outside rage defaults to 7
+      ls_cell_color-color-int = '1'.      " 1 = Intensifide on, 0 = Intensified off
+      ls_cell_color-color-inv = '0'.      " 1 - text colour, 0 = background colour
+
+      APPEND ls_cell_color TO ls_po-cell_color.
+
+      CLEAR: ls_cell_color.
+      ls_cell_color-fname = 'MENGE'.
+      ls_cell_color-color-col = '7'.      " color code 1-7
+      ls_cell_color-color-int = '1'.      " 1 = Intensifide on, 0 = Intensified off
+      ls_cell_color-color-inv = '0'.      " 1 - text colour, 0 = background colour
+
+      APPEND ls_cell_color TO ls_po-cell_color.
+
+      CLEAR: ls_cell_color.
+      ls_cell_color-fname = 'MATNR'.
+      ls_cell_color-color-col = '3'.      " color code 1-7 (Default 2)
+      ls_cell_color-color-int = '1'.      " 1 = Intensifide on, 0 = Intensified off
+      ls_cell_color-color-inv = '0'.      " 1 - text colour, 0 = background colour
+
+      APPEND ls_cell_color TO ls_po-cell_color.
+
+      CLEAR: ls_cell_color.
+      ls_cell_color-fname = 'MAKTX'.
+      ls_cell_color-color-col = '3'.      " color code 1-7 (Default 2)
+      ls_cell_color-color-int = '0'.      " 1 = Intensifide on, 0 = Intensified off
+      ls_cell_color-color-inv = '1'.      " 1 - text colour, 0 = background colour
+
+      APPEND ls_cell_color TO ls_po-cell_color.
+
+      " LVC Style "
+      CLEAR: ls_cell_style.
+      ls_cell_style-fieldname = 'MEINS'.
+      ls_cell_style-style = cl_gui_alv_grid=>mc_style_enabled.
+
+      APPEND ls_cell_style TO ls_po-cell_style.
+    ENDIF.
+
+    MODIFY ct_po FROM ls_po.
+
+  ENDLOOP.
+
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form frm_show_alv
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM frm_show_alv .
+
+  DATA: lt_fcat TYPE lvc_t_fcat.
+
+  APPEND VALUE #( fieldname = 'BOX  ' coltext = 'Box.' checkbox = abap_true      edit = abap_true )     TO lt_fcat. " 'checbox = abap_true' is to make a checbox in every row of 'box' column
+  APPEND VALUE #( fieldname = 'ZICON ' coltext = 'ICON.' icon = abap_true )                             TO lt_fcat. " 'checbox = abap_true' is to make a checbox in every row of 'box' column
+  APPEND VALUE #( fieldname = 'EBELN' coltext = 'Purch.Doc.' ref_table = 'EKKO'   ref_field = 'EBELN' ) TO lt_fcat. " 'ref_table' and 'ref_field' is to give a reference and give a reaction for the column data
+  APPEND VALUE #( fieldname = 'EBELP' coltext = 'Item' )                                                TO lt_fcat.
+  APPEND VALUE #( fieldname = 'EKORG' coltext = 'Item	Purchasing org.' )                                TO lt_fcat.
+  APPEND VALUE #( fieldname = 'LIFNR' coltext = 'Vendor' )                                              TO lt_fcat.
+  APPEND VALUE #( fieldname = 'NAME1' coltext = 'Vendor Name' )                                         TO lt_fcat.
+  APPEND VALUE #( fieldname = 'WERKS' coltext = 'Plant' )                                               TO lt_fcat.
+  APPEND VALUE #( fieldname = 'MATNR' coltext = 'Material Number' )                                     TO lt_fcat.
+  APPEND VALUE #( fieldname = 'MAKTX' coltext = 'Material description' )                                TO lt_fcat.
+  APPEND VALUE #( fieldname = 'MENGE' coltext = 'Quantity' )                                            TO lt_fcat.
+  APPEND VALUE #( fieldname = 'MEINS' coltext = 'Order Unit' )                                          TO lt_fcat.
+  APPEND VALUE #( fieldname = 'NETWR' coltext = 'Net Order Value' )                                     TO lt_fcat.
+  APPEND VALUE #( fieldname = 'WAERS' coltext = 'Currency' edit = abap_true )                           TO lt_fcat.  " 'edit = abap_true' is an alternative way to use lvc_s_layo for edit"
+
+ " Step 2 "
+  DATA ls_layout TYPE lvc_s_layo.
+  ls_layout-cwidth_opt = 'X'.                   " To automatic adjust the report layout (We can use 'X' or 'ABAP_TRUE' keyword, it's still the same) "
+*  ls_layout-edit = 'X'.                         " To edit every data when running (We can use 'X' or 'ABAP_TRUE' keyword, it's still the same) "
+  ls_layout-zebra = 'X'.                        " To make every row have a light and dark tone (We can use 'X' or 'ABAP_TRUE' keyword, it's still the same) "
+  ls_layout-ctab_fname = 'CELL_COLOR'.          " To define an access to fill the colour of the column
+  ls_layout-stylefname = 'CELL_STYLE'.          " To define an acesss to edit only one data in a column
+*  ls_layout-grid_total = 'X'.
+*  ls_layout-no_rowmark = 'X'.
+*  ls_layout-no_toolbar = 'X'.
+*  ls_layout-sel_mode = 'X'.
+
+  CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY_LVC'
+    EXPORTING
+      i_grid_title    = 'The Assessment of Week 2-ALV Report-Author: 44655 + Sean'
+      is_layout_lvc   = ls_layout
+      it_fieldcat_lvc = lt_fcat
+      i_default       = 'X'                     "
+      i_save          = space                   " To save the variant display of ALV that we change "
+    TABLES
+      t_outtab        = gt_po
+    EXCEPTIONS
+      program_error   = 1
+      OTHERS          = 2.
+
+
+  IF sy-subrc <> 0.
+    MESSAGE ID sy-msgid
+    TYPE       sy-msgty
+    NUMBER     sy-msgno.
+  ENDIF.
+
+ENDFORM.

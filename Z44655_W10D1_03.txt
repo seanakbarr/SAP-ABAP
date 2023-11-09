@@ -1,0 +1,205 @@
+*&---------------------------------------------------------------------*
+*& Report Z44655_W10D1_03
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT Z44655_W10D1_03.
+
+DATA: GV_ZPL_STRING TYPE STRING.
+DATA: V1 TYPE String VALUE 'Title 44655',
+      V2 TYPE STRING VALUE 'barcode 44655'.
+
+PERFORM PRINT_ZPL.
+
+
+FORM PRINT_ZPL.
+  CONSTANTS CV_FORMNAME TYPE TDSFNAME VALUE 'ZSF_ZPL_44655_01'.
+  DATA: LV_SYMBOL_VALUE TYPE CHAR120.
+  DATA: LV_SYMBOL_NAME TYPE CHAR120.
+  DATA: LT_TLINE TYPE TABLE OF TLINE.
+  FIELD-SYMBOLS: <LS_TLINE> TYPE TLINE.
+  DATA: LT_TOKEN TYPE TSFTOKEN,
+        LS_TOKEN TYPE STXTOKEN,
+        LV_AUFNR TYPE AUFNR.
+
+  DATA: BEGIN OF %FULLNAME,
+          FORM TYPE TDSFNAME VALUE CV_FORMNAME,
+          VARI TYPE TDVARIANT,
+          ACTV TYPE TDBOOL VALUE 'X',
+        END OF %FULLNAME.
+
+  FIELD-SYMBOLS <INTERFACE_VAR>.
+  DATA LV_INAME TYPE CHAR40.
+
+  DATA: LS_HEADER   TYPE SSFFORMHD,
+        LT_DOCSTRUC TYPE TSFDOCSTRC,
+        DOCENTRY    LIKE LINE OF LT_DOCSTRUC.
+
+  CALL FUNCTION 'SSF_FUNCTION_MODULE_NAME'
+    EXPORTING
+      FORMNAME           = CV_FORMNAME
+*     VARIANT            = ' '
+*     DIRECT_CALL        = ' '
+*   IMPORTING
+*     FM_NAME            =
+    EXCEPTIONS
+      NO_FORM            = 1
+      NO_FUNCTION_MODULE = 2
+      OTHERS             = 3.
+  IF SY-SUBRC <> 0.
+    CALL FUNCTION 'FB_GENERATE_FORM'
+      EXPORTING
+        I_FORMNAME       = CV_FORMNAME
+      EXCEPTIONS
+        NO_NAME          = 1
+        NO_FORM          = 1
+        NO_ACTIVE_SOURCE = 1
+        GENERATION_ERROR = 1
+        ILLEGAL_FORMTYPE = 2
+        OTHERS           = 2.
+    IF SY-SUBRC = 1.
+      MESSAGE 'Form ' && CV_FORMNAME && ' does not exist' TYPE 'E'.
+    ELSEIF SY-SUBRC = 2.
+      MESSAGE 'Unable to generate form ' && CV_FORMNAME TYPE 'E'.
+    ENDIF.
+
+  ENDIF.
+
+  IMPORT HEADER TO LS_HEADER
+         DOCSTRUC TO LT_DOCSTRUC FROM DATABASE STXFCONTR(SF) ID %FULLNAME.
+
+  LOOP AT LT_DOCSTRUC INTO DOCENTRY WHERE TDPAGE = LS_HEADER-FIRSTPAGE
+                                      AND CALLPROG IS NOT INITIAL
+                                      AND CALLFORM IS NOT INITIAL.
+    SHIFT DOCENTRY-CALLPROG RIGHT DELETING TRAILING SPACE.
+    SHIFT DOCENTRY-CALLFORM RIGHT DELETING TRAILING SPACE.
+    CONDENSE: DOCENTRY-CALLPROG,DOCENTRY-CALLFORM.
+    EXIT.
+  ENDLOOP.
+
+  DEFINE DEFINE_SF_IMPORT_VAR.
+    CONCATENATE '(' DOCENTRY-CALLPROG ')' &1 INTO LV_INAME.
+    ASSIGN (LV_INAME) TO <INTERFACE_VAR>.
+    IF SY-SUBRC = 0.
+      <INTERFACE_VAR> = &2.
+    ENDIF.
+  END-OF-DEFINITION.
+
+*  LOOP AT gt_output INTO gs_output.
+
+  DO 1 TIMES. "PRINT NUMBERS
+    PERFORM %GLOBAL_CLEAR IN PROGRAM (DOCENTRY-CALLPROG).
+    DEFINE_SF_IMPORT_VAR: 'V1'  V1,   "The varient name must be same as smartforms import
+                          'V2'  V2.
+
+    CLEAR: LT_TLINE.
+    DATA LV_TPNAME TYPE CHAR70.
+    LV_TPNAME = 'ZPL44655'. "so10
+
+    CALL FUNCTION 'READ_TEXT'
+      EXPORTING
+        ID                      = 'ST'
+        LANGUAGE                = SY-LANGU
+        NAME                    = LV_TPNAME
+        OBJECT                  = 'TEXT'
+      TABLES
+        LINES                   = LT_TLINE
+      EXCEPTIONS
+        ID                      = 1
+        LANGUAGE                = 2
+        NAME                    = 3
+        NOT_FOUND               = 4
+        OBJECT                  = 5
+        REFERENCE_CHECK         = 6
+        WRONG_ACCESS_TO_ARCHIVE = 7
+        OTHERS                  = 8.
+
+    LOOP AT LT_TLINE ASSIGNING <LS_TLINE>.
+      REPLACE ALL OCCURRENCES OF '%' IN <LS_TLINE> WITH '&'.
+    ENDLOOP.
+
+    CALL FUNCTION 'SSFCOMP_CONVERT_ITF_TO_TOKEN'
+      EXPORTING
+        I_NAME     = SPACE
+        I_TEXT     = LT_TLINE
+        I_TEXTNAME = SPACE
+        I_TEXTTYPE = SPACE
+        I_LANGU    = 'E'
+      IMPORTING
+        E_TOKEN    = LT_TOKEN.
+
+    LOOP AT LT_TOKEN INTO LS_TOKEN.
+      CASE LS_TOKEN-CODE.
+        WHEN '&&'.
+          CALL FUNCTION 'SSFRT_SYMBOL_VALUE'
+            EXPORTING
+              I_PROGRAM      = DOCENTRY-CALLPROG
+              I_SYMBOLNAME   = LS_TOKEN-STRING
+            IMPORTING
+              O_SYMBOL_VALUE = LV_SYMBOL_VALUE
+            EXCEPTIONS
+              ERROR          = 1
+              OTHERS         = 2.
+          READ TABLE LT_TLINE ASSIGNING <LS_TLINE> INDEX LS_TOKEN-LINE.
+          IF SY-SUBRC = 0.
+            CONCATENATE '&' LS_TOKEN-STRING '&' INTO LV_SYMBOL_NAME.
+            REPLACE LV_SYMBOL_NAME IN <LS_TLINE> WITH LV_SYMBOL_VALUE.
+          ENDIF.
+      ENDCASE.
+    ENDLOOP.
+    CALL FUNCTION 'IDMX_DI_TLINE_INTO_STRING'
+      EXPORTING
+        IT_TLINE       = LT_TLINE
+      IMPORTING
+        EV_TEXT_STRING = GV_ZPL_STRING.
+
+*      REPLACE ALL OCCURRENCES OF 'BCN N' IN gv_zpl_string WITH 'BCN,,N'.
+    PERFORM FRM_LABEL_PRINT.
+  ENDDO.
+*    CLEAR: gs_output.
+*  ENDLOOP.
+
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form frm_label_print
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+FORM FRM_LABEL_PRINT .
+  DATA: VL_PARAMS LIKE PRI_PARAMS,
+        VL_VALID,
+        VL_PDEST  LIKE PRI_PARAMS-PDEST.
+
+  VL_PDEST = 'ZPL2'.      "printer
+
+  CALL FUNCTION 'GET_PRINT_PARAMETERS'
+    EXPORTING
+      COPIES                 = 1
+      DESTINATION            = VL_PDEST
+      EXPIRATION             = 1
+      IMMEDIATELY            = 'X'
+      NO_DIALOG              = 'X'
+    IMPORTING
+      OUT_PARAMETERS         = VL_PARAMS
+      VALID                  = VL_VALID
+    EXCEPTIONS
+      ARCHIVE_INFO_NOT_FOUND = 1
+      INVALID_PRINT_PARAMS   = 2
+      INVALID_ARCHIVE_PARAMS = 3
+      OTHERS                 = 4.
+  IF SY-SUBRC <> 0.
+* Implement suitable error handling here
+  ELSE.
+    VL_PARAMS-LINSZ = 65.
+    VL_PARAMS-PAART = 'A4'.   "page format
+  ENDIF.
+
+  NEW-PAGE PRINT ON PARAMETERS VL_PARAMS NO DIALOG.
+  NEW-PAGE LINE-SIZE 1200.
+  SPLIT GV_ZPL_STRING AT CL_ABAP_CHAR_UTILITIES=>CR_LF INTO TABLE DATA(LT_ZPL_LINE).
+  LOOP AT LT_ZPL_LINE INTO DATA(LV_ZPL_LINE).
+    WRITE:/(1200) LV_ZPL_LINE.
+  ENDLOOP.
+  NEW-PAGE PRINT OFF.
+ENDFORM.

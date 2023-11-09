@@ -1,0 +1,151 @@
+*&---------------------------------------------------------------------*
+*& Report Z44655_W8D3_03
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT Z44655_W8D3_03.
+
+TABLES: SSCRFIELDS.
+
+PARAMETERS: P_CARRID TYPE SCARR-CARRID.
+
+SELECTION-SCREEN FUNCTION KEY 1.
+SELECTION-SCREEN FUNCTION KEY 2.
+
+CLASS LCL_PROG DEFINITION
+  INHERITING FROM /ZHD/CL_HREPORT
+  CREATE PRIVATE.
+
+  PUBLIC SECTION.
+    CLASS-METHODS PUSH_VIEW.
+
+    METHODS INITIALIZE REDEFINITION.
+    METHODS CHECK_AUTHORITY REDEFINITION.
+    METHODS EXECUTE REDEFINITION.
+    METHODS SHOW REDEFINITION.
+    METHODS EXIT REDEFINITION.
+    METHODS PBO REDEFINITION.
+    METHODS PAI REDEFINITION.
+    METHODS POH REDEFINITION.
+    METHODS POV REDEFINITION.
+
+ENDCLASS.
+
+CLASS LCL_PROG IMPLEMENTATION.
+
+  METHOD PUSH_VIEW.
+
+    CHECK NOT IS_SCREEN_EXISTS( PROGRAM = SY-REPID ).
+
+    DATA LO_VIEW TYPE REF TO /ZHD/IF_HSCREEN.
+    CASE SY-DYNNR.
+      WHEN '1000'.
+        DATA(LV_CLASS_NAME) = 'LCL_PROG'.
+      WHEN OTHERS.
+    ENDCASE.
+
+    CREATE OBJECT LO_VIEW TYPE (LV_CLASS_NAME).
+
+  ENDMETHOD.
+
+  METHOD INITIALIZE.
+
+    P_CARRID = 'AA'.
+    SSCRFIELDS-FUNCTXT_01 = '@49@ZTEST1'.
+    SSCRFIELDS-FUNCTXT_02 = '@7V@ZTEST2'.
+
+  ENDMETHOD.
+
+  METHOD CHECK_AUTHORITY.
+
+    AUTHORITY-CHECK OBJECT 'S_CARRID'
+     ID 'CARRID' FIELD P_CARRID
+     ID 'ACTVT' FIELD '03'.
+
+    IF SY-SUBRC <> 0.
+
+*     Implement a suitable exception handling here
+
+    ENDIF.
+
+    IF SY-SUBRC <> 0.
+
+      MESSAGE 'You can"t quey info this Airline' TYPE 'E'.
+
+    ENDIF.
+
+  ENDMETHOD.
+
+  METHOD EXECUTE.
+
+    MESSAGE 'Start Of Selection' TYPE 'I'.
+
+  ENDMETHOD.
+
+  METHOD SHOW.
+
+    MESSAGE 'End Of Selection' TYPE 'I'.
+
+  ENDMETHOD.
+
+  METHOD EXIT.
+
+    CASE SY-UCOMM.
+      WHEN 'F03' OR 'F15'.
+        LEAVE TO SCREEN 0.
+      WHEN 'F12'.
+        LEAVE PROGRAM.
+      WHEN OTHERS.
+    ENDCASE.
+
+    MESSAGE 'Leave Selection Screen' TYPE 'I'.      " &ZExit &ZBack &ZEnd Reaction after click"
+
+  ENDMETHOD.
+
+  METHOD PBO.
+
+    LOOP AT SCREEN.
+      SCREEN-INPUT = 0.           " Set a configuration before the program is runnning "
+      MODIFY SCREEN.
+    ENDLOOP.
+
+    SET PF-STATUS 'STANDARD_FULLSCREEN'.
+    SET TITLEBAR '1000' WITH 'Title Test'.
+
+  ENDMETHOD.
+
+  METHOD PAI.
+
+    CASE SY-UCOMM.
+      WHEN 'ONLI'.
+        MESSAGE 'PAI' TYPE 'I'.    " Give Reaction after input/give action if we click Execute button "
+      WHEN 'FC01'.
+        MESSAGE 'FC01' TYPE 'I'.   " Give Reaction after input/give action if we click ZTEST1 button "
+      WHEN 'FC01'.
+        MESSAGE 'FC01' TYPE 'I'.   " Give Reaction after input/give action if we click ZTEST1 button "
+      WHEN OTHERS.
+    ENDCASE.
+
+  ENDMETHOD.
+
+  METHOD POH.
+
+    MESSAGE 'POH' TYPE 'I'.       " F1 Documentary "
+
+  ENDMETHOD.
+
+  METHOD POV.
+
+    MESSAGE 'POV' TYPE 'I'.       " Search Help "
+
+  ENDMETHOD.
+
+ENDCLASS.
+
+AT SELECTION-SCREEN ON HELP-REQUEST FOR P_CARRID.
+  LCL_PROG=>EVENT( 'POH' ).
+
+AT SELECTION-SCREEN ON VALUE-REQUEST FOR P_CARRID.
+  LCL_PROG=>EVENT( 'POV' ).
+
+INCLUDE /ZHD/HSCREEN_EVENT_INC.

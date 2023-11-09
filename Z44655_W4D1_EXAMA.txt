@@ -1,0 +1,365 @@
+*&---------------------------------------------------------------------*
+*& Report Z44655_W2D5_EXAM_ANSWER
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT Z44655_W4D1_EXAMA.
+
+TABLES: MKPF,
+        MSEG.
+
+SELECT-OPTIONS: S_BUDAT FOR MKPF-BUDAT OBLIGATORY.
+PARAMETERS: P_WERKS TYPE MSEG-WERKS OBLIGATORY DEFAULT '1710'.
+SELECT-OPTIONS: S_LGORT FOR MSEG-LGORT,
+                S_MATNR FOR MSEG-MATNR.
+
+TYPES: BEGIN OF TS_INV,
+         WERKS      TYPE MSEG-WERKS,
+         LGORT      TYPE MSEG-LGORT,
+         MATNR      TYPE MSEG-MATNR,
+         MEINS      TYPE MSEG-MEINS,
+         WAERS      TYPE MSEG-WAERS,
+         MENGE_IN   TYPE MSEG-MENGE,
+         MENGE_OUT  TYPE MSEG-MENGE,
+         AMOUNT_IN  TYPE MSEG-DMBTR,
+         AMOUNT_OUT TYPE MSEG-DMBTR,
+       END OF TS_INV.
+
+TYPES: TT_EXAM TYPE STANDARD TABLE OF ZSW444655_EXAMA1,
+       TT_MDOC TYPE STANDARD TABLE OF ZSW444655_EXAMA2,
+       TT_INV  TYPE STANDARD TABLE OF TS_INV.
+
+DATA : GT_EXAM TYPE TT_EXAM,
+       GS_EXAM TYPE ZSW444655_EXAMA1,
+       GT_MDOC TYPE TT_MDOC,
+       GS_MDOC TYPE ZSW444655_EXAMA2,
+       GT_INV  TYPE TT_INV,
+       GS_INV  TYPE TS_INV.
+
+INITIALIZATION.
+
+  PERFORM FRM_SET_DEFAULT_VALUE.
+
+AT SELECTION-SCREEN.
+
+  PERFORM FRM_CHECK_EXISTENCE USING P_WERKS.
+
+START-OF-SELECTION.
+
+  PERFORM FRM_GET_DATA.
+
+  PERFORM FRM_SHOW_ALV.
+
+*&---------------------------------------------------------------------*
+*& Form FRM_SET_DEFAULT_VALUE
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM FRM_SET_DEFAULT_VALUE.
+
+  DATA LS_BUDAT LIKE LINE OF S_BUDAT.
+  LS_BUDAT-SIGN   = 'I'.
+  LS_BUDAT-OPTION = 'BT'.
+  LS_BUDAT-LOW    = '20200101'.
+  LS_BUDAT-HIGH   = SY-DATUM.
+  APPEND LS_BUDAT TO S_BUDAT.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form FRM_CHECK_EXISTENCE
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*&      --> P_WERKS
+*&---------------------------------------------------------------------*
+FORM FRM_CHECK_EXISTENCE  USING    PV_WERKS.
+
+  DATA LV_WERKS TYPE MSEG-WERKS.
+  SELECT SINGLE WERKS
+    FROM T001W
+    INTO LV_WERKS
+   WHERE WERKS = PV_WERKS.
+  IF SY-SUBRC <> 0.
+    MESSAGE 'Plant not found!' TYPE 'E'.
+  ENDIF.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form FRM_GET_DATA
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM FRM_GET_DATA.
+
+  SELECT *
+    FROM MSEG
+   INNER JOIN MKPF
+      ON MSEG~MBLNR = MKPF~MBLNR
+     AND MSEG~MJAHR = MKPF~MJAHR
+    INTO CORRESPONDING FIELDS OF TABLE GT_MDOC
+   WHERE MKPF~BUDAT IN S_BUDAT
+     AND MSEG~WERKS = P_WERKS
+     AND MSEG~LGORT IN S_LGORT
+     AND MSEG~MATNR IN S_MATNR.
+  IF SY-SUBRC <> 0.
+    MESSAGE 'No data found!' TYPE 'E'.
+  ENDIF.
+
+  LOOP AT GT_MDOC INTO GS_MDOC.
+    CLEAR GS_INV.
+    MOVE-CORRESPONDING GS_MDOC TO GS_INV.
+    IF GS_MDOC-SHKZG = 'S'.
+      GS_INV-MENGE_IN = GS_MDOC-MENGE.
+      GS_INV-AMOUNT_IN = GS_MDOC-DMBTR.
+    ELSE.
+      GS_INV-MENGE_OUT = GS_MDOC-MENGE.
+      GS_INV-AMOUNT_OUT = GS_MDOC-DMBTR.
+    ENDIF.
+    COLLECT GS_INV INTO GT_INV.
+  ENDLOOP.
+
+  DATA LT_T001W TYPE STANDARD TABLE OF T001W.
+  SELECT *
+    FROM T001W
+    INTO CORRESPONDING FIELDS OF TABLE LT_T001W
+     FOR ALL ENTRIES IN GT_INV
+   WHERE T001W~WERKS = GT_INV-WERKS.
+  IF SY-SUBRC = 0.
+    SORT LT_T001W BY WERKS.
+  ENDIF.
+
+  DATA LT_MAKT TYPE STANDARD TABLE OF MAKT.
+  SELECT *
+    FROM MAKT
+    INTO CORRESPONDING FIELDS OF TABLE LT_MAKT
+     FOR ALL ENTRIES IN GT_EXAM
+   WHERE MAKT~MATNR = GT_EXAM-MATNR
+     AND MAKT~SPRAS = SY-LANGU.
+  IF SY-SUBRC = 0.
+    SORT LT_MAKT BY MATNR.
+  ENDIF.
+
+  BREAK-POINT.
+
+  DATA LS_T001W LIKE LINE OF LT_T001W.
+  DATA LS_MAKT LIKE LINE OF LT_MAKT.
+  DATA LS_CELL_COLOR TYPE LVC_S_SCOL.
+
+  LOOP AT GT_INV INTO GS_INV.
+    CLEAR GS_EXAM.
+    MOVE-CORRESPONDING GS_INV TO GS_EXAM.
+    READ TABLE LT_T001W INTO LS_T001W WITH KEY WERKS = GS_INV-WERKS
+                                      BINARY SEARCH.
+    IF SY-SUBRC = 0.
+      GS_EXAM-NAME1 = LS_T001W-NAME1.
+      CLEAR LS_T001W.
+    ENDIF.
+
+    READ TABLE LT_MAKT INTO LS_MAKT WITH KEY MATNR = GS_INV-MATNR
+                                    BINARY SEARCH.
+    IF SY-SUBRC = 0.
+      GS_EXAM-MAKTX = LS_MAKT-MAKTX.
+      CLEAR LS_MAKT.
+    ENDIF.
+
+    GS_EXAM-MENGE_BAL = GS_EXAM-MENGE_IN - GS_EXAM-MENGE_OUT.
+    GS_EXAM-AMOUNT_BAL = GS_EXAM-AMOUNT_IN - GS_EXAM-AMOUNT_OUT.
+
+    IF GS_EXAM-MENGE_BAL < 0.
+      CLEAR: LS_CELL_COLOR.
+      LS_CELL_COLOR-FNAME = 'MENGE_BAL'.
+      LS_CELL_COLOR-COLOR-COL = '6'.
+      APPEND LS_CELL_COLOR TO GS_EXAM-CELL_COLOR.
+    ENDIF.
+    IF GS_EXAM-AMOUNT_BAL < 10000.
+      CLEAR: LS_CELL_COLOR.
+      LS_CELL_COLOR-FNAME = 'AMOUNT_BAL'.
+      LS_CELL_COLOR-COLOR-COL = '6'.
+      APPEND LS_CELL_COLOR TO GS_EXAM-CELL_COLOR.
+    ENDIF.
+
+    APPEND GS_EXAM TO GT_EXAM.
+
+  ENDLOOP.
+
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form frm_show_alv
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM FRM_SHOW_ALV .
+
+  DATA: LT_FCAT TYPE LVC_T_FCAT.
+
+*  CALL FUNCTION 'LVC_FIELDCATALOG_MERGE'
+*    EXPORTING
+*      I_STRUCTURE_NAME       = 'ZSW444655_EXAMA1'
+*    CHANGING
+*      CT_FIELDCAT            = LT_FCAT
+*    EXCEPTIONS
+*      INCONSISTENT_INTERFACE = 1
+*      PROGRAM_ERROR          = 2
+*      OTHERS                 = 3.
+
+  DATA LS_LAYOUT TYPE LVC_S_LAYO.
+  LS_LAYOUT-CWIDTH_OPT = 'X'.
+  LS_LAYOUT-ZEBRA = 'X'.
+  LS_LAYOUT-CTAB_FNAME = 'CELL_COLOR'.
+
+  DATA LS_FCAT LIKE LINE OF LT_FCAT.
+*  LOOP AT LT_FCAT INTO LS_FCAT.
+*
+*    CASE LS_FCAT-FIELDNAME.
+*      WHEN 'MATNR'.
+*        LS_FCAT-HOTSPOT = 'X'.
+*      WHEN OTHERS.
+*    ENDCASE.
+*
+*    MODIFY LT_FCAT FROM LS_FCAT.
+*  ENDLOOP.
+
+  DATA LT_EVENTS TYPE SLIS_T_EVENT.
+  DATA LS_EVENTS LIKE LINE OF LT_EVENTS.
+
+  LS_EVENTS-NAME = SLIS_EV_USER_COMMAND.
+  LS_EVENTS-FORM = 'FRM_USER_COMMAND'.
+
+  APPEND LS_EVENTS TO LT_EVENTS.
+
+  CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY_LVC'
+    EXPORTING
+      I_CALLBACK_PROGRAM = SY-REPID
+      I_GRID_TITLE       = 'Good Movement Information for [Sean Akbar Ryanto]'
+      IS_LAYOUT_LVC      = LS_LAYOUT
+      IT_FIELDCAT_LVC    = LT_FCAT
+      I_DEFAULT          = 'X'
+      I_SAVE             = 'A'
+      IT_EVENTS          = LT_EVENTS
+    TABLES
+      T_OUTTAB           = GT_EXAM
+    EXCEPTIONS
+      PROGRAM_ERROR      = 1
+      OTHERS             = 2.
+
+  IF SY-SUBRC <> 0.
+    MESSAGE ID SY-MSGID
+       TYPE SY-MSGTY
+     NUMBER SY-MSGNO
+       WITH SY-MSGV1 SY-MSGV2 SY-MSGV3 SY-MSGV4.
+  ENDIF.
+
+ENDFORM.
+
+*FORM FRM_SET_PF_STATUS USING PV_EXCL_TAB TYPE KKBLO_T_EXTAB.
+*  SET TITLEBAR 'TITLE' WITH 'ALV' 'Report' 'ABAP Dictionary' 'Practice Exam C'.
+*  SET PF-STATUS 'STANDARD_FULLSCREEN'.
+*
+*  DATA LO_GRID TYPE REF TO CL_GUI_ALV_GRID.
+*  CALL FUNCTION 'GET_GLOBALS_FROM_SLVC_FULLSCR'
+*    IMPORTING
+*      E_GRID = LO_GRID.
+*
+*ENDFORM.
+
+FORM FRM_USER_COMMAND USING PV_UCOMM       LIKE SY-UCOMM
+                            PS_FIELD_INFO  TYPE SLIS_SELFIELD.
+
+  CASE PV_UCOMM.
+    WHEN '&IC1'.
+      IF PS_FIELD_INFO-SEL_TAB_FIELD = '1-MATNR'.
+        SET PARAMETER ID 'MAT' FIELD PS_FIELD_INFO-VALUE.
+        CALL TRANSACTION 'MM03' AND SKIP FIRST SCREEN.
+      ELSE.
+        TYPES: BEGIN OF LS_ALV2,
+                 MATNR TYPE MSEG-MATNR,
+                 MBLNR TYPE MSEG-MBLNR,
+                 MJAHR TYPE MSEG-MJAHR,
+                 ZEILE TYPE MSEG-ZEILE,
+                 BUDAT TYPE MKPF-BUDAT,
+                 LGORT TYPE MSEG-LGORT,
+                 BWART TYPE MSEG-BWART,
+                 MENGE TYPE MSEG-MENGE,
+                 MEINS TYPE MSEG-MEINS,
+                 DMBTR TYPE MSEG-DMBTR,
+                 WAERS TYPE MSEG-WAERS,
+                 BKTXT TYPE MKPF-BKTXT,
+               END OF LS_ALV2.
+
+        DATA: LT_ALV2 TYPE STANDARD TABLE OF LS_ALV2,
+              LS_ALV2 LIKE LINE OF LT_ALV2.
+
+        DATA LS_EXAM LIKE LINE OF GT_EXAM.
+        READ TABLE GT_EXAM INTO LS_EXAM INDEX PS_FIELD_INFO-TABINDEX.
+        IF SY-SUBRC <> 0.
+          RETURN.
+        ENDIF.
+
+        LOOP AT gt_EXAM INTO gs_EXAM.
+          MOVE-CORRESPONDING gs_EXAM TO ls_ALV2.
+          COLLECT ls_ALV2 INTO lt_ALV2.
+        ENDLOOP.
+
+        SELECT *
+          FROM MSEG
+          INNER JOIN MKPF
+            ON MSEG~MBLNR = MKPF~MBLNR
+           AND MSEG~MJAHR = MKPF~MJAHR
+          INTO CORRESPONDING FIELDS OF TABLE LT_ALV2
+         WHERE WERKS = LS_EXAM-WERKS
+          AND LGORT = LS_EXAM-LGORT
+          AND MATNR = LS_EXAM-MATNR
+          AND  MEINS = LS_EXAM-MEINS
+          AND  WAERS = LS_EXAM-WAERS.
+        IF SY-SUBRC = 0.
+          SORT LT_ALV2.
+        ENDIF.
+
+        DATA: LT_FCAT TYPE LVC_T_FCAT.
+        DATA LS_LAYOUT TYPE LVC_S_LAYO.
+        LS_LAYOUT-CWIDTH_OPT = ABAP_TRUE.
+
+        APPEND VALUE #( FIELDNAME = 'MATNR' COLTEXT = 'Material' )                  TO LT_FCAT.
+        APPEND VALUE #( FIELDNAME = 'MBLNR' COLTEXT = 'Material Document' )         TO LT_FCAT.
+        APPEND VALUE #( FIELDNAME = 'MJAHR' COLTEXT = 'Material Doc Year.' )        TO LT_FCAT.
+        APPEND VALUE #( FIELDNAME = 'ZEILE' COLTEXT = 'Material Doc Item' )         TO LT_FCAT.
+        APPEND VALUE #( FIELDNAME = 'BUDAT' COLTEXT = 'Posting Date' )              TO LT_FCAT.
+        APPEND VALUE #( FIELDNAME = 'LGORT' COLTEXT = 'Storage Location' )          TO LT_FCAT.
+        APPEND VALUE #( FIELDNAME = 'BWART' COLTEXT = 'Movement Type' )             TO LT_FCAT.
+        APPEND VALUE #( FIELDNAME = 'MENGE' COLTEXT = 'Quantity' )                  TO LT_FCAT.
+        APPEND VALUE #( FIELDNAME = 'MEINS' COLTEXT = 'Base Unit' REF_FIELD = 'MEINS' REF_TABLE = 'MSEG')  TO LT_FCAT.
+        APPEND VALUE #( FIELDNAME = 'DMBTR' COLTEXT = 'Amount' )                    TO LT_FCAT.
+        APPEND VALUE #( FIELDNAME = 'WAERS' COLTEXT = 'Currency' )                  TO LT_FCAT.
+        APPEND VALUE #( FIELDNAME = 'BKTXT' COLTEXT = 'Document Header Text' )      TO LT_FCAT.
+
+          CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY_LVC'
+            EXPORTING
+              I_GRID_TITLE    = 'Good Movement Details'
+              IT_FIELDCAT_LVC = LT_FCAT
+              IS_LAYOUT_LVC   = LS_LAYOUT
+            TABLES
+              T_OUTTAB        = LT_ALV2
+            EXCEPTIONS
+              PROGRAM_ERROR   = 1
+              OTHERS          = 2.
+          IF SY-SUBRC <> 0.
+            MESSAGE ID SY-MSGID
+                  TYPE SY-MSGTY
+                NUMBER SY-MSGNO
+                  WITH SY-MSGV1 SY-MSGV2 SY-MSGV3 SY-MSGV4.
+          ENDIF.
+        ENDIF.
+      WHEN OTHERS.
+    ENDCASE.
+
+ENDFORM.

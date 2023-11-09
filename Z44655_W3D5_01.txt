@@ -1,0 +1,49 @@
+*&---------------------------------------------------------------------*
+*& Report Z44655_W3D5_01
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT Z44655_W3D5_01.
+
+DATA lt_scarr type STANDARD TABLE OF scarr.
+
+SELECT *
+  FROM scarr
+  INTO CORRESPONDING FIELDS OF TABLE lt_scarr.
+
+DATA lt_fcat TYPE lvc_t_fcat.
+
+  CALL FUNCTION 'LVC_FIELDCATALOG_MERGE'
+    EXPORTING
+      I_STRUCTURE_NAME       = 'ZSTEST001_44655'
+    CHANGING
+      CT_FIELDCAT            = LT_FCAT
+    EXCEPTIONS
+      INCONSISTENT_INTERFACE = 1
+      PROGRAM_ERROR          = 2
+      OTHERS                 = 3.
+  IF SY-SUBRC <> 0.
+* Implement suitable error handling here
+  ENDIF.
+
+
+CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY_LVC'
+    EXPORTING
+      I_CALLBACK_PROGRAM        = SY-REPID                                       " System report ID
+      I_CALLBACK_PF_STATUS_SET  = ''
+      I_GRID_TITLE              = 'The Assessment of Week 2-ALV Report-Author: 44655 + Sean'
+      IT_FIELDCAT_LVC           = LT_FCAT
+*      IS_LAYOUT_LVC             =
+      I_DEFAULT                 = 'X'                     "
+      I_SAVE                    = 'A'                   " To save the variant display of ALV that we change "
+*      IT_EVENTS                 = LT_EVENTS
+    TABLES
+      T_OUTTAB                  = LT_SCARR
+      .
+*    EXCEPTIONS
+*      PROGRAM_ERROR      = 1
+*      OTHERS             = 2.
+
+  IF SY-SUBRC <> 0.
+
+  ENDIF.

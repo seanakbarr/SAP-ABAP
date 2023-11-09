@@ -1,0 +1,50 @@
+*&---------------------------------------------------------------------*
+*& Report Z44655_W2D4_02
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT z44655_w2d4_02.
+
+TYPES: BEGIN OF ts_scarr,
+         mandt    TYPE scarr-mandt,
+         carrid   TYPE scarr-carrid,
+         carrname TYPE scarr-carrname,
+         currcode TYPE scarr-currcode,
+         url      TYPE scarr-url,
+       END OF ts_scarr.
+
+TYPES: tt_scarr TYPE STANDARD TABLE OF ts_scarr.
+DATA: gt_scarr TYPE tt_scarr,
+      gs_scarr TYPE ts_scarr.
+
+SELECT *
+       FROM scarr
+       INTO CORRESPONDING FIELDS OF TABLE gt_scarr.
+
+DATA gt_fcat TYPE LVC_T_FCAT.
+
+CALL FUNCTION 'LVC_FIELDCATALOG_MERGE'
+ EXPORTING
+   I_STRUCTURE_NAME             = 'scarr'
+ CHANGING
+    ct_fieldcat                 = gt_fcat
+ EXCEPTIONS
+   INCONSISTENT_INTERFACE       = 1
+   PROGRAM_ERROR                = 2
+   OTHERS                       = 3
+          .
+IF sy-subrc <> 0.
+* Implement suitable error handling here
+ENDIF.
+CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY_LVC'
+ EXPORTING
+   IT_FIELDCAT_LVC                   = gt_fcat
+ TABLES
+   t_outtab                          = gt_scarr
+ EXCEPTIONS
+   PROGRAM_ERROR                     = 1
+   OTHERS                            = 2.
+          .
+IF sy-subrc <> 0.
+* Implement suitable error handling here
+ENDIF.

@@ -1,0 +1,236 @@
+*&---------------------------------------------------------------------*
+*& Report Z0_W9D4_01
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT z44655_w10d5_pdfviewer.
+TYPES: BEGIN OF ts_request_data,
+         matnr TYPE matnr,
+         langu TYPE spras,
+       END OF ts_request_data.
+TYPES: BEGIN OF ts_reponse_data,
+         matnr TYPE matnr,
+         langu TYPE spras,
+         maktx TYPE maktx,
+       END OF ts_reponse_data.
+DATA: ls_request_data  TYPE ts_request_data,
+      ls_response_data TYPE ts_reponse_data,
+      lv_request_data  TYPE string,
+      lv_responsex     TYPE xstring.
+DATA : lo_http_client TYPE REF TO if_http_client,
+       lv_url         TYPE string,
+       lv_response    TYPE string,
+       lv_msgty       TYPE c,
+       lv_msgtx       TYPE string.
+
+
+lv_url = 'http://api.labelary.com/v1/printers/8dpmm/labels/4x6/' .
+
+CALL METHOD cl_http_client=>create_by_url
+  EXPORTING
+    url                = lv_url
+*   PROXY_HOST         =
+*   PROXY_SERVICE      =
+*   SSL_ID             =
+*   SAP_USERNAME       =
+*   SAP_CLIENT         =
+  IMPORTING
+    client             = lo_http_client
+  EXCEPTIONS
+    argument_not_found = 1
+    plugin_not_active  = 2
+    internal_error     = 3
+    OTHERS             = 4.
+IF sy-subrc <> 0.
+* Implement suitable error handling here
+  MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno WITH
+    sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+  EXIT.
+ENDIF.
+*CALL METHOD cl_http_client=>create_by_destination
+*  EXPORTING
+*    destination              = 'RESTTEST327'
+*  IMPORTING
+*    client                   = lo_http_client
+*  EXCEPTIONS
+*    argument_not_found       = 1
+*    destination_not_found    = 2
+*    destination_no_authority = 3
+*    plugin_not_active        = 4
+*    internal_error           = 5
+*    OTHERS                   = 6.
+*IF sy-subrc <> 0.
+**   Implement suitable error handling here
+*ENDIF.
+
+
+
+*  lo_http_client->request->set_form_field(
+*    EXPORTING
+*      name  =   'ID'  " Name of form field
+*      value =    id " Form field value
+*  ).
+
+*lo_http_client->request->set_form_field(
+*  EXPORTING
+*    name  =   'SAP-USER'  " Name of form field
+*    value =    '327' " Form field value
+*  ).
+*
+*lo_http_client->request->set_form_field(
+*  EXPORTING
+*    name  =   'SAP-PASSWORD'  " Name of form field
+*    value =    'Han' " Form field value
+*  ).
+
+lo_http_client->request->set_header_field(
+  name = 'Accept'
+  value = 'application/pdf'
+).
+
+lo_http_client->request->set_content_type(
+  content_type = 'application/x-www-form-urlencoded'
+).
+
+* REQUEST DATA
+
+lv_request_data = '^xa^cfa,50^fo100,100^fdSmaller Label^fs^xz^xa^cfa,50^fo100,100^fdSmaller Label^fs^xz'.
+
+lo_http_client->request->set_cdata( data = lv_request_data ).
+
+
+lo_http_client->request->set_method( 'POST' ).
+
+lo_http_client->send(
+  EXCEPTIONS http_communication_failure = 1
+             http_invalid_state = 2
+).
+
+IF sy-subrc <> 0.
+  "failed
+  "lv_subrc = sy-subrc.
+  lo_http_client->get_last_error( IMPORTING message = lv_msgtx ).
+  lv_msgty = 'E'.
+  EXIT.
+ENDIF.
+
+CALL METHOD lo_http_client->receive
+  EXCEPTIONS
+    http_communication_failure = 1
+    http_invalid_state         = 2
+    http_processing_failed     = 3.
+
+
+IF sy-subrc <> 0 .
+  "lv_subrc = sy-subrc.
+  lo_http_client->get_last_error( IMPORTING message = lv_msgtx ).
+  lv_msgty = 'E'.
+  EXIT.
+ENDIF.
+
+CLEAR lv_response.
+lv_response = lo_http_client->response->get_cdata( ).
+
+"Xstring
+lv_responsex = lo_http_client->response->get_data( ).
+
+*WRITE: / lv_responsex.
+
+DATA: g_html_viewer    TYPE REF TO cl_gui_html_viewer,
+      g_html_container TYPE REF TO cl_gui_custom_container,
+      lv_urlPDF        TYPE char255,
+      lt_data          TYPE STANDARD TABLE OF x255.
+
+DATA: okcode TYPE sy-ucomm.
+
+
+CALL FUNCTION 'SCMS_XSTRING_TO_BINARY'
+  EXPORTING
+    buffer     = lv_responsex
+*   APPEND_TO_TABLE       = ' '
+* IMPORTING
+*   OUTPUT_LENGTH         =
+  TABLES
+    binary_tab = lt_data.
+
+CALL SCREEN 100.
+*&---------------------------------------------------------------------*
+*& Module STATUS_0100 OUTPUT
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+MODULE status_0100 OUTPUT.
+  SET PF-STATUS 'STATUS100'.
+  SET TITLEBAR 'TITLE100'.
+
+  IF g_html_container IS INITIAL.
+    CREATE OBJECT g_html_container
+      EXPORTING
+        container_name = 'PDF'
+      EXCEPTIONS
+        cntl_error     = 1
+        OTHERS         = 2.
+    IF sy-subrc <> 0.
+      EXIT.
+    ELSE.
+      " -----------------------------------
+      " create HTML Viewer object
+      CREATE OBJECT g_html_viewer
+        EXPORTING
+          parent = g_html_container.
+
+    ENDIF.
+  ENDIF.
+
+  CALL METHOD g_html_viewer->load_data
+    EXPORTING
+*     url                    =
+      type                   = 'application'
+      subtype                = 'pdf'
+*     size                   = 0
+*     encoding               =
+*     charset                =
+*     needfiltering          = 0
+*     language               =
+*     i_tidyt                =
+    IMPORTING
+      assigned_url           = lv_urlpdf
+    CHANGING
+      data_table             = lt_data
+*     iscontentchanged       =
+    EXCEPTIONS
+      dp_invalid_parameter   = 1
+      dp_error_general       = 2
+      cntl_error             = 3
+      html_syntax_notcorrect = 4
+      OTHERS                 = 5.
+  IF sy-subrc <> 0.
+*   Implement suitable error handling here
+  ENDIF.
+
+  CALL METHOD g_html_viewer->show_url
+    EXPORTING
+      url                    = lv_urlpdf
+*     frame                  =
+      in_place               = ' X'
+    EXCEPTIONS
+      cntl_error             = 1
+      cnht_error_not_allowed = 2
+      cnht_error_parameter   = 3
+      dp_error_general       = 4
+      OTHERS                 = 5.
+  IF sy-subrc <> 0.
+*   Implement suitable error handling here
+  ENDIF.
+
+
+ENDMODULE.
+*&---------------------------------------------------------------------*
+*&      Module  USER_COMMAND_0100  INPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE user_command_0100 INPUT.
+  LEAVE TO SCREEN 0.
+  EXIT.
+ENDMODULE.

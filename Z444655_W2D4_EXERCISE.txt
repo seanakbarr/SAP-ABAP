@@ -1,0 +1,223 @@
+*&---------------------------------------------------------------------*
+*& Report Z444655_W2D4_EXERCISE
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT z444655_w2d4_exercise.
+
+TABLES: scarr, sflight.
+
+TYPES : BEGIN OF ts_combine,
+          carrid     TYPE scarr-carrid,
+          carrname   TYPE scarr-carrname,
+          currcode   TYPE scarr-currcode,
+          url        TYPE scarr-url,
+          connid     TYPE sflight-connid,
+          fldate     TYPE sflight-fldate,
+          price      TYPE sflight-price,
+          currency   TYPE sflight-currency,
+          planetype  TYPE sflight-planetype,
+          seatsmax   TYPE sflight-seatsmax,
+          seatsocc   TYPE sflight-seatsocc,
+          paymentsum TYPE sflight-paymentsum,
+          seatsmax_b TYPE sflight-seatsmax_b,
+          seatsocc_b TYPE sflight-seatsocc_b,
+          seatsmax_f TYPE sflight-seatsmax_f,
+          seatsocc_f TYPE sflight-seatsocc_f,
+        END OF ts_combine.
+
+TYPES tt_combine TYPE STANDARD TABLE OF ts_combine.
+DATA gt_combine TYPE tt_combine.
+DATA gs_combine TYPE ts_combine.
+
+PARAMETERS: p_test TYPE scarr-carrid.
+SELECT-OPTIONS: s_test FOR scarr-carrid.
+
+*DATA gr_carrid TYPE RANGE OF scarr-id.
+
+INITIALIZATION.
+  CASE sy-uname.
+    WHEN '44655'.
+      DATA gs_test LIKE LINE OF s_test.
+      p_test = 'OK'.
+      gs_test-low = 'AA'.
+      gs_test-high = 'AZ'.
+      APPEND gs_test TO s_test.
+    WHEN OTHERS.
+  ENDCASE.
+
+AT SELECTION-SCREEN.
+  IF p_test = 'OK'.
+    MESSAGE 'Here" your report' TYPE 'I' DISPLAY LIKE 'W'.
+  ELSE.
+    MESSAGE 'Sorry, you can"t use this option. Maybe you can choose another' TYPE 'I' DISPLAY LIKE 'S'.
+  ENDIF.
+
+START-OF-SELECTION.
+  SELECT *
+        FROM ( scarr AS a
+        INNER JOIN sflight AS b
+        ON a~carrid = b~carrid )
+        INTO CORRESPONDING FIELDS OF TABLE gt_combine.
+
+  DATA gt_fcat TYPE lvc_t_fcat.
+  DATA gs_fcat LIKE LINE OF gt_fcat.
+
+*  DATA gt_fieldnames TYPE STANDARD TABLE OF string.
+*  DATA gt_coltext TYPE STANDARD TABLE OF string.
+*  DATA gv_temp TYPE string.
+*  DATA gv_temp1 TYPE string.
+*
+*  APPEND 'carrid'     TO gt_fieldnames.
+*  APPEND 'connid'     TO gt_fieldnames.
+*  APPEND 'fldate'     TO gt_fieldnames.
+*  APPEND 'price'      TO gt_fieldnames.
+*  APPEND 'currency'   TO gt_fieldnames.
+*  APPEND 'planetype'  TO gt_fieldnames.
+*  APPEND 'seatsmax'   TO gt_fieldnames.
+*  APPEND 'seatsocc'   TO gt_fieldnames.
+*  APPEND 'paymentsum' TO gt_fieldnames.
+*  APPEND 'seatsmax_b' TO gt_fieldnames.
+*  APPEND 'seatsocc_b' TO gt_fieldnames.
+*  APPEND 'seatsmax_f' TO gt_fieldnames.
+*  APPEND 'seatsocc_f' TO gt_fieldnames.
+*  APPEND 'carrname'   TO gt_fieldnames.
+*  APPEND 'currcode'   TO gt_fieldnames.
+*  APPEND 'url'        TO gt_fieldnames.
+*
+*  APPEND 'carr_id'        TO gt_coltext.
+*  APPEND 'conn_id'        TO gt_coltext.
+*  APPEND 'flight date'    TO gt_coltext.
+*  APPEND 'price'          TO gt_coltext.
+*  APPEND 'currency'       TO gt_coltext.
+*  APPEND 'planet type'    TO gt_coltext.
+*  APPEND 'seats_max'      TO gt_coltext.
+*  APPEND 'seats_occ'      TO gt_coltext.
+*  APPEND 'payment_sum'    TO gt_coltext.
+*  APPEND 'seat_smax_b'    TO gt_coltext.
+*  APPEND 'seats_occ_b'    TO gt_coltext.
+*  APPEND 'seats_max_f'    TO gt_coltext.
+*  APPEND 'seats_occ_f'    TO gt_coltext.
+*  APPEND 'carr_name'      TO gt_coltext.
+*  APPEND 'curr_code'      TO gt_coltext.
+*  APPEND 'url link'       TO gt_coltext.
+*
+*  LOOP AT gt_fieldnames INTO gv_temp.
+*    CLEAR gs_fcat.
+*    READ TABLE gt_coltext INTO gv_temp1 INDEX sy-index.
+*    gs_fcat-fieldname = gv_temp.
+*    gs_fcat-coltext   = gv_temp1.
+*    APPEND gs_fcat TO gt_fcat.
+*  ENDLOOP.
+
+*CALL FUNCTION 'LVC_FIELDCATALOG_MERGE'
+* EXPORTING
+*   I_STRUCTURE_NAME             = 'scarr'
+* CHANGING
+*    ct_fieldcat                 = gt_fcat
+* EXCEPTIONS
+*   INCONSISTENT_INTERFACE       = 1
+*   PROGRAM_ERROR                = 2
+*   OTHERS                       = 3
+
+DO 16 TIMES.
+  CASE sy-index.
+    WHEN 1.
+      CLEAR gs_fcat.
+      gs_fcat-fieldname = 'carrid'.
+      gs_fcat-coltext = 'Airline Code'.
+      APPEND gs_fcat TO gt_fcat.
+    WHEN 2.
+      CLEAR gs_fcat.
+      gs_fcat-fieldname = 'carrname'.
+      gs_fcat-coltext = 'Airline name'.
+      APPEND gs_fcat TO gt_fcat.
+    WHEN 3.
+      CLEAR gs_fcat.
+      gs_fcat-fieldname = 'currcode'.
+      gs_fcat-coltext = 'Local currency of airline'.
+      APPEND gs_fcat TO gt_fcat.
+    WHEN 4.
+      CLEAR gs_fcat.
+      gs_fcat-fieldname = 'url'.
+      gs_fcat-coltext = 'Airline URL'.
+      APPEND gs_fcat TO gt_fcat.
+    WHEN 5.
+      CLEAR gs_fcat.
+      gs_fcat-fieldname = 'connid'.
+      gs_fcat-coltext = 'Flight Connection Number'.
+      APPEND gs_fcat TO gt_fcat.
+    WHEN 6.
+      CLEAR gs_fcat.
+      gs_fcat-fieldname = 'fldate'.
+      gs_fcat-coltext = 'Flight date'.
+      APPEND gs_fcat TO gt_fcat.
+    WHEN 7.
+      CLEAR gs_fcat.
+      gs_fcat-fieldname = 'price'.
+      gs_fcat-coltext = 'Airfare'.
+      APPEND gs_fcat TO gt_fcat.
+    WHEN 8.
+      CLEAR gs_fcat.
+      gs_fcat-fieldname = 'currency '.
+      gs_fcat-coltext = 'Local currency of airline'.
+      APPEND gs_fcat TO gt_fcat.
+    WHEN 9.
+      CLEAR gs_fcat.
+      gs_fcat-fieldname = 'planetype'.
+      gs_fcat-coltext = 'Aircraft Type'.
+      APPEND gs_fcat TO gt_fcat.
+    WHEN 10.
+      CLEAR gs_fcat.
+      gs_fcat-fieldname = 'seatsmax'.
+      gs_fcat-coltext = 'Maximum capacity in economy class'.
+      APPEND gs_fcat TO gt_fcat.
+    WHEN 11.
+      CLEAR gs_fcat.
+      gs_fcat-fieldname = 'seatsocc'.
+      gs_fcat-coltext = 'Occupied seats in economy class'.
+      APPEND gs_fcat TO gt_fcat.
+    WHEN 12.
+      CLEAR gs_fcat.
+      gs_fcat-fieldname = 'paymentsum'.
+      gs_fcat-coltext = 'Total of current bookings'.
+      APPEND gs_fcat TO gt_fcat.
+    WHEN 13.
+      CLEAR gs_fcat.
+      gs_fcat-fieldname = 'seatsmax_b'.
+      gs_fcat-coltext = 'Maximum capacity in business class'.
+      APPEND gs_fcat TO gt_fcat.
+    WHEN 14.
+      CLEAR gs_fcat.
+      gs_fcat-fieldname = 'seatsocc_b'.
+      gs_fcat-coltext = 'Occupied seats in business class'.
+      APPEND gs_fcat TO gt_fcat.
+    WHEN 15.
+      CLEAR gs_fcat.
+      gs_fcat-fieldname = 'seatsmax_f'.
+      gs_fcat-coltext = 'Maximum capacity in first class'.
+      APPEND gs_fcat TO gt_fcat.
+    WHEN 16.
+      CLEAR gs_fcat.
+      gs_fcat-fieldname = 'seatsocc_f'.
+      gs_fcat-coltext = 'Occupied seats in first class'.
+      APPEND gs_fcat TO gt_fcat.
+    WHEN OTHERS.
+  ENDCASE.
+ENDDO.
+  .
+  IF sy-subrc <> 0.
+* Implement suitable error handling here
+  ENDIF.
+  CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY_LVC'
+    EXPORTING
+      it_fieldcat_lvc = gt_fcat
+    TABLES
+      t_outtab        = gt_combine
+    EXCEPTIONS
+      program_error   = 1
+      OTHERS          = 2.
+  .
+  IF sy-subrc <> 0.
+* Implement suitable error handling here
+  ENDIF.

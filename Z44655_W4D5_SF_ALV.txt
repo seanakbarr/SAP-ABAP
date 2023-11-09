@@ -1,0 +1,153 @@
+*&---------------------------------------------------------------------*
+*& Report Z44655_W4D5_SF_ALV
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT Z44655_W4D5_SF_ALV.
+
+"1. define the database table
+TABLES: EKKO,
+        EKPO.
+
+"2. define the select-option
+PARAMETERS: P_WERKS TYPE EKPO-WERKS.
+SELECT-OPTIONS: S_EBELN FOR EKPO-EBELN.
+
+"3. create the structure and table in abap dictionary
+DATA GS_HEADER TYPE ZSPO_HEADER_17876.
+
+DATA GT_ITEMS TYPE ZTTPO_ITEM_17876.
+
+"4. select data from database table
+SELECT SINGLE *
+  FROM EKKO
+  INTO CORRESPONDING FIELDS OF GS_HEADER
+ WHERE EBELN IN S_EBELN.
+IF SY-SUBRC <> 0.
+  MESSAGE 'NO DATA FOUND!' TYPE 'E'.
+ENDIF.
+
+SELECT *
+  FROM EKPO
+ INNER JOIN EKKO
+    ON EKKO~EBELN = EKPO~EBELN
+  INTO CORRESPONDING FIELDS OF TABLE GT_ITEMS
+ WHERE EKKO~EBELN = GS_HEADER-EBELN.
+
+"5.get fieldcatlog for alv
+DATA GT_FCAT TYPE LVC_T_FCAT.
+CALL FUNCTION 'LVC_FIELDCATALOG_MERGE'
+  EXPORTING
+    I_STRUCTURE_NAME       = 'ZSPO_ITEM_17876'
+  CHANGING
+    CT_FIELDCAT            = GT_FCAT
+  EXCEPTIONS
+    INCONSISTENT_INTERFACE = 1
+    PROGRAM_ERROR          = 2
+    OTHERS                 = 3.
+IF SY-SUBRC <> 0.
+* Implement suitable error handling here
+ENDIF.
+
+DATA GS_LAYOUT TYPE LVC_S_LAYO.
+GS_LAYOUT-BOX_FNAME = 'ZBOX'.
+
+"6. call alv
+CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY_LVC'
+  EXPORTING
+   I_CALLBACK_PROGRAM                = SY-REPID
+   I_CALLBACK_PF_STATUS_SET          = 'FRM_SET_PF_STATUS'
+   I_CALLBACK_USER_COMMAND           = 'FRM_USER_COMMAND'
+   IS_LAYOUT_LVC   = GS_LAYOUT
+   IT_FIELDCAT_LVC = GT_FCAT
+  TABLES
+    T_OUTTAB        = GT_ITEMS
+  EXCEPTIONS
+    PROGRAM_ERROR   = 1
+    OTHERS          = 2.
+IF SY-SUBRC <> 0.
+* Implement suitable error handling here
+ENDIF.
+
+FORM FRM_SET_PF_STATUS USING PV_EXCL_TAB TYPE KKBLO_T_EXTAB.
+  SET PF-STATUS 'STANDARD_FULLSCREEN'.
+ENDFORM.
+
+FORM FRM_USER_COMMAND USING PV_UCOMM       LIKE SY-UCOMM
+                            PS_FIELD_INFO  TYPE SLIS_SELFIELD.
+
+  CASE PV_UCOMM.
+    WHEN '&ZPRINT'.
+        DATA GS_CONTROL_PARAMETERS TYPE SSFCTRLOP.
+        GS_CONTROL_PARAMETERS-NO_DIALOG = ABAP_TRUE.    " To use No_DIALOG "
+        GS_CONTROL_PARAMETERS-PREVIEW = ABAP_TRUE.      " To use PREVIEW "
+
+        DATA GS_OUTPUT_OPTIONS TYPE SSFCOMPOP.
+
+        DATA GS_JOB_OUTPUT_INFO TYPE SSFCRESCL.
+
+        DATA GV_FORNAME TYPE TDSFNAME.
+        GV_FORNAME = 'ZSF44655_002'.
+
+        DATA GV_FNAME TYPE RS38L_FNAM.
+
+        CALL FUNCTION 'SSF_FUNCTION_MODULE_NAME'
+          EXPORTING
+            FORMNAME                 = GV_FORNAME
+          IMPORTING
+            FM_NAME                  = GV_FNAME
+          EXCEPTIONS
+            NO_FORM                  = 1
+            NO_FUNCTION_MODULE       = 2
+            OTHERS                   = 3
+                  .
+        IF SY-SUBRC <> 0.
+*         Implement suitable error handling here
+        ENDIF.
+
+        DATA GT_ITEMS TYPE ZTTSF44655_002.
+        DATA GS_ITEM TYPE ZSSF44655_002.
+
+        DATA GS_HEADERLINE TYPE ZSSF44655_002_HEADER.
+        GS_HEADERLINE-HEADERLINE = 'HAND'.
+
+        DO 15 TIMES.
+          GS_ITEM-SNO     = sy-index.
+          GS_ITEM-COMPANY = GS_HEADERLINE-HEADERLINE.
+          GS_ITEM-NAME    = 'EMP' && sy-index.
+          IF sy-index MOD 2 <> 0.
+            GS_ITEM-GENDER = 'Male'.
+          ELSE.
+            GS_ITEM-GENDER = 'Female'.
+          ENDIF.
+          GS_ITEM-AGE     = sy-index * 10.
+          GS_ITEM-ADDRESS = 'Central Jakarta'.
+          APPEND GS_ITEM TO GT_ITEMS.
+        ENDDO.
+
+        DATA LS_OUTPUT_DATA TYPE SSFCRESCL.
+        " Alternative way to use a function, if we don't know the code name of our Smart Forms
+        CALL FUNCTION GV_FNAME
+         EXPORTING
+           CONTROL_PARAMETERS         = GS_CONTROL_PARAMETERS
+           OUTPUT_OPTIONS             = GS_OUTPUT_OPTIONS
+           USER_SETTINGS              = ABAP_FALSE
+           IV_QR_CODE_CONTENT         = 'Sean' && SY-DATUM
+           IS_HEADER                  = GS_HEADERLINE
+         IMPORTING
+           JOB_OUTPUT_INFO            = LS_OUTPUT_DATA
+           TABLES
+             IT_ITEMS                 = GT_ITEMS
+         EXCEPTIONS
+           FORMATTING_ERROR           = 1
+           INTERNAL_ERROR             = 2
+           SEND_ERROR                 = 3
+           USER_CANCELED              = 4
+           OTHERS                     = 5
+                  .
+        IF SY-SUBRC <> 0.
+*         Implement suitable error handling here
+        ENDIF.
+    WHEN OTHERS.
+  ENDCASE.
+ENDFORM.

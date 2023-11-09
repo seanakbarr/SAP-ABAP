@@ -1,0 +1,308 @@
+*&---------------------------------------------------------------------*
+*& Report Z44655_W8D2_04
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT Z44655_W8D2_04.
+
+CLASS LCL_PROG DEFINITION
+  CREATE PRIVATE.
+
+  PUBLIC SECTION.
+    TYPES: BEGIN OF TS_SCARR.
+    TYPES:   ZBOX  TYPE XFELD,
+             COLOR TYPE LVC_T_SCOL,
+             STYLE TYPE LVC_T_STYL.
+             INCLUDE TYPE SCARR.
+    TYPES: END OF TS_SCARR.
+
+    TYPES TT_SCARR TYPE STANDARD TABLE OF TS_SCARR WITH DEFAULT KEY.
+
+    CLASS-METHODS GET_INSTANCE
+      RETURNING
+        VALUE(RO_INSTANCE) TYPE REF TO LCL_PROG.
+
+    METHODS SET_COLOR.
+
+    METHODS MAIN.
+
+    DATA GV_CARRID TYPE S_CARRID.
+
+  PRIVATE SECTION.
+    METHODS CONSTRUCTOR.
+    CLASS-DATA GO_INSTANCE TYPE REF TO LCL_PROG.
+
+    DATA: GT_SCARR TYPE TT_SCARR,
+          GS_SCARR TYPE TS_SCARR.
+
+    DATA GO_SCARR TYPE REF TO ZHDCL_HALV_PARENT.
+
+ENDCLASS.
+
+CLASS LCL_HALV_EVENT_SCARR DEFINITION
+  INHERITING FROM ZHDCL_HALV_EVENT_HANDLER.
+
+  PUBLIC SECTION.
+    METHODS ON_PBO                REDEFINITION.
+    METHODS ON_TOOLBAR            REDEFINITION.
+    METHODS ON_USER_COMMAND       REDEFINITION.
+    METHODS ON_CHANGED_FINISHED   REDEFINITION.
+    METHODS ON_HOTSPOT_CLICK      REDEFINITION.
+    METHODS ON_DOUBLE_CLICK       REDEFINITION.
+
+ENDCLASS.
+
+START-OF-SELECTION.
+  LCL_PROG=>GET_INSTANCE( )->MAIN( ).
+
+CLASS LCL_PROG IMPLEMENTATION.
+
+  METHOD CONSTRUCTOR.
+    SELECT *
+      FROM SCARR
+     INTO CORRESPONDING FIELDS OF TABLE GT_SCARR.
+
+    IF SY-SUBRC = 0.
+      GO_SCARR = ZHDCL_HALV_FACTORY=>GET_HALV( VALUE #( TYPE = 'HALV'
+                                                        BIND_ITAB = ABAP_TRUE
+                                                        TITLE = TEXT-F07
+                                                        COLOR_TABLE_NAME = 'COLOR'
+                                                        STYLE_TABLE_NAME = 'STYLE'
+                                                        EVENT_HANDLER = NEW LCL_HALV_EVENT_SCARR( )
+                                                        CHECKBOX_NAME    = 'ZBOX' ) ).
+      GO_SCARR->BIND( CHANGING ITAB = GT_SCARR ).
+      SET_COLOR( ).
+    ELSE.
+      MESSAGE TEXT-E01 TYPE 'E'.
+    ENDIF.
+  ENDMETHOD.
+
+  METHOD GET_INSTANCE.
+    IF GO_INSTANCE IS NOT BOUND.
+      CREATE OBJECT GO_INSTANCE.
+    ENDIF.
+    RO_INSTANCE = GO_INSTANCE.
+  ENDMETHOD.
+
+  METHOD SET_COLOR.
+
+    DATA LS_CELL_COLOR TYPE LVC_S_SCOL.
+
+    FIELD-SYMBOLS <TABLE> TYPE TT_SCARR.
+    ASSIGN GT_SCARR TO <TABLE>.
+
+*    Clear it before setting the style color to prevent incorrect application if it is set elsewhere.
+    GO_SCARR->CLEAR_LINE_COLOR_TABLE( ).
+
+    LOOP AT <TABLE> ASSIGNING FIELD-SYMBOL(<POINTER>).
+
+      DATA(INDEX) = SY-TABIX.
+      CASE <POINTER>-CURRCODE.
+        WHEN 'USD'.
+          CLEAR: LS_CELL_COLOR.
+          LS_CELL_COLOR-FNAME = 'CURRCODE'.
+          LS_CELL_COLOR-COLOR-COL     = '6'.
+
+          APPEND LS_CELL_COLOR TO GS_SCARR-COLOR.
+          MODIFY <TABLE> FROM GS_SCARR TRANSPORTING COLOR.
+          CLEAR: GS_SCARR-COLOR.
+
+        WHEN 'EUR'.
+          CLEAR: LS_CELL_COLOR.
+          LS_CELL_COLOR-FNAME = 'CURRCODE'.
+          LS_CELL_COLOR-COLOR-COL     = '5'.
+
+          APPEND LS_CELL_COLOR TO GS_SCARR-COLOR.
+          MODIFY <TABLE> FROM GS_SCARR TRANSPORTING COLOR.
+          CLEAR: GS_SCARR-COLOR.
+        WHEN OTHERS.
+          CLEAR: LS_CELL_COLOR.
+          LS_CELL_COLOR-FNAME = 'CURRCODE'.
+          LS_CELL_COLOR-COLOR-COL     = '3'.
+
+          APPEND LS_CELL_COLOR TO GS_SCARR-COLOR.
+          MODIFY <TABLE> FROM GS_SCARR TRANSPORTING COLOR.
+          CLEAR: GS_SCARR-COLOR.
+      ENDCASE.
+
+    ENDLOOP.
+
+  ENDMETHOD.
+
+  METHOD MAIN.
+
+    " First Way "
+*    GO_SCARR = ZHDCL_HALV_FACTORY=>GET_HALV( VALUE #( TYPE = 'HALV' BIND_ITAB = ABAP_TRUE ) ).
+    GO_SCARR->DISPLAY( ).
+
+    " Second Way "
+*    ZHDCL_HALV_FACTORY=>GET_HALV( VALUE #( TYPE = 'HALV' BIND_ITAB = ABAP_TRUE )
+*                     )->BIND( CHANGING ITAB = GT_SCARR
+*                     )->DISPLAY( ).
+
+  ENDMETHOD.
+
+ENDCLASS.
+
+CLASS LCL_HALV_EVENT_SCARR IMPLEMENTATION.
+
+  METHOD ON_PBO.
+
+    DATA(FIELDCAT) = HALV->GET_FIELDCAT( ).
+
+    FIELDCAT[ FIELDNAME = 'CARRID' ]-HOTSPOT = ABAP_TRUE.
+    FIELDCAT[ FIELDNAME = 'URL' ]-EDIT = ABAP_TRUE.
+    HALV->SET_FIELDCAT( FIELDCAT )."
+
+    DATA(LAYOUT) = HALV->GET_LAYOUT( ).
+
+*  LAYOUT-EDIT       = ABAP_TRUE.
+    LAYOUT-CWIDTH_OPT = ABAP_TRUE.
+
+    HALV->SET_LAYOUT( LAYOUT ).
+
+    HALV->REFRESH( ).
+
+  ENDMETHOD.
+
+  METHOD ON_TOOLBAR.
+
+    HALV->ADD_BUTTON(  FUN_CODE  = TEXT-F03
+                       BTN_TYPE  = 0
+                       ICON      = ICON_SELECT_ALL
+                       TEXT      = ''
+                       QUICKINFO = TEXT-F01
+                       DISABLE   = ABAP_FALSE
+                       OBJECT    = E_OBJECT
+
+       )->ADD_BUTTON(  FUN_CODE  = TEXT-F04
+                       BTN_TYPE  = 0
+                       ICON      = ICON_DESELECT_ALL
+                       TEXT      = ''
+                       QUICKINFO = TEXT-F02
+                       DISABLE   = ABAP_FALSE
+                       OBJECT    = E_OBJECT
+       ).
+
+  ENDMETHOD.
+
+  METHOD ON_USER_COMMAND.
+
+    FIELD-SYMBOLS <LT_TAB> TYPE LCL_PROG=>TT_SCARR.
+    ASSIGN HALV->GRID->OUTTAB->* TO <LT_TAB>.
+
+    DATA LS_SCARR TYPE LCL_PROG=>TS_SCARR.
+    CASE E_UCOMM.
+      WHEN TEXT-F03.
+        LS_SCARR-ZBOX = ABAP_TRUE.
+        MODIFY <LT_TAB> FROM LS_SCARR TRANSPORTING ZBOX WHERE ZBOX = ABAP_FALSE.
+      WHEN TEXT-F04.
+        LS_SCARR-ZBOX = ABAP_FALSE.
+        MODIFY <LT_TAB> FROM LS_SCARR TRANSPORTING ZBOX WHERE ZBOX = ABAP_TRUE.
+      WHEN OTHERS.
+    ENDCASE.
+
+    HALV->REFRESH( ).
+
+  ENDMETHOD.
+
+  METHOD ON_CHANGED_FINISHED.
+
+    CHECK ET_GOOD_CELLS IS NOT INITIAL.
+
+    FIELD-SYMBOLS <LT_TAB> TYPE STANDARD TABLE.
+    ASSIGN HALV->GRID->OUTTAB->* TO <LT_TAB>.
+
+    IF <LT_TAB> IS ASSIGNED.
+
+      FIELD-SYMBOLS <LS_LINE> TYPE LCL_PROG=>TS_SCARR.
+      READ TABLE <LT_TAB> ASSIGNING <LS_LINE> INDEX ET_GOOD_CELLS[ 1 ]-ROW_ID.
+
+      IF SY-SUBRC = 0.
+
+        HALV->CLEAR_LINE_COLOR_TABLE( ).
+        HALV->CLEAR_LINE_STYLE_TABLE( ).
+
+        CASE <LS_LINE>-URL.
+          WHEN 'A'.
+
+            <LS_LINE>-CURRCODE = ICON_INCOMPLETE.
+            HALV->ADD_LINE_STYLE( FIELDNAME = 'CURRCODE'
+                                  STYLE     = ZHDCL_HALV_GUI_GRID=>MC_STYLE_BUTTON ).
+            HALV->ADD_LINE_COLOR( FIELDNAME = 'CARRID' COL = 6 ).
+
+          WHEN OTHERS.
+            HALV->ADD_LINE_COLOR( FIELDNAME = 'CARRID' COL = 3 ).
+        ENDCASE.
+
+        HALV->SET_STYLE_FOR_SINGLE_LINE( ET_GOOD_CELLS[ 1 ]-ROW_ID ).
+        HALV->SET_COLOR_FOR_SINGLE_LINE( ET_GOOD_CELLS[ 1 ]-ROW_ID ).
+
+      ENDIF.
+
+    ENDIF.
+
+    HALV->REFRESH( ).
+
+  ENDMETHOD.
+
+  METHOD ON_HOTSPOT_CLICK.
+
+  IF E_COLUMN_ID-FIELDNAME = 'CARRID'.
+    DATA(LT_CELLS) = HALV->GET_SELECTED_CELLS( ).
+    CHECK LT_CELLS IS NOT INITIAL.
+    DATA(LV_CARRID) = LT_CELLS[ 1 ]-VALUE.
+
+    SELECT *
+      FROM SBOOK
+     INTO TABLE @DATA(LT_SBOOK)
+    WHERE CARRID = @LV_CARRID.
+
+    IF SY-SUBRC = 0.
+
+      ZHDCL_HALV_FACTORY=>GET_HALV( VALUE #( TYPE = 'HALV'
+                                             BIND_ITAB = ABAP_TRUE
+                                             TITLE = TEXT-F05 )
+                       )->BIND( CHANGING ITAB = LT_SBOOK )->DISPLAY( ).
+    ELSE.
+
+      MESSAGE TEXT-E01 TYPE 'E'.
+
+    ENDIF.
+
+  ENDIF.
+
+  ENDMETHOD.
+
+  METHOD ON_DOUBLE_CLICK.
+
+    FIELD-SYMBOLS <LT_TAB> TYPE STANDARD TABLE.
+    ASSIGN HALV->GRID->OUTTAB->* TO <LT_TAB>.
+
+    IF <LT_TAB> IS ASSIGNED.
+
+      FIELD-SYMBOLS <LS_LINE> TYPE LCL_PROG=>TS_SCARR.
+      READ TABLE <LT_TAB> ASSIGNING <LS_LINE> INDEX E_ROW-INDEX.
+
+      SELECT *
+        FROM SFLIGHT
+       INTO TABLE @DATA(LT_SFLIGHT)
+      WHERE CARRID = @<LS_LINE>-CARRID.
+
+      IF SY-SUBRC = 0.
+
+        ZHDCL_HALV_FACTORY=>GET_HALV( VALUE #( TYPE = 'HALV_POPUP'
+                                               BIND_ITAB = ABAP_TRUE
+                                               TITLE = TEXT-F06 )
+                         )->BIND( CHANGING ITAB = LT_SFLIGHT )->DISPLAY( ).
+      ELSE.
+
+        MESSAGE TEXT-E01 TYPE 'E'.
+
+      ENDIF.
+
+    ENDIF.
+
+  ENDMETHOD.
+
+ENDCLASS.

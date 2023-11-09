@@ -1,0 +1,58 @@
+*&---------------------------------------------------------------------*
+*& Report Z44655_W2D4_01
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT z44655_w2d4_01.
+
+*TABLES: scarr.
+*
+*PARAMETERS: p_test1 TYPE scarr-carrid.
+*PARAMETERS: p_test2 TYPE scarr-carrid.
+*PARAMETERS: p_test3 TYPE scarr-carrid.
+*PARAMETERS: p_test4 TYPE scarr-carrid.
+*PARAMETERS: p_test5 TYPE scarr-carrid.
+*PARAMETERS: p_test6 TYPE scarr-carrid.
+*PARAMETERS: p_test7 TYPE scarr-carrid.
+*PARAMETERS: p_test8 TYPE scarr-carrid.
+*PARAMETERS: p_test9 TYPE scarr-carrid.
+*PARAMETERS: p_test10 TYPE scarr-carrid.
+*
+*SELECT-OPTIONS: s_test1 FOR scarr-carrid NO INTERVALS.        " To make a display not showed in range "
+*SELECT-OPTIONS: s_test2 FOR scarr-carrid.
+*SELECT-OPTIONS: s_test3 FOR scarr-carrid.
+*SELECT-OPTIONS: s_test4 FOR scarr-carrid.
+*SELECT-OPTIONS: s_test5 FOR scarr-carrid.
+*SELECT-OPTIONS: s_test6 FOR scarr-carrid.
+*SELECT-OPTIONS: s_test7 FOR scarr-carrid.
+*SELECT-OPTIONS: s_test8 FOR scarr-carrid.
+*SELECT-OPTIONS: s_test9 FOR scarr-carrid.
+*SELECT-OPTIONS: s_test10 FOR scarr-carrid.
+
+TABLES scarr.
+
+PARAMETERS: p_test1 TYPE scarr-carrid.
+SELECT-OPTIONS: s_test1 FOR scarr-carrid.
+
+*DATA gr_carrid TYPE RANGE OF scarr-id.
+
+INITIALIZATION.
+ CASE sy-uname.
+   WHEN '44655'.
+     DATA gs_test LIKE LINE OF s_test1.
+     p_test1 = 'AA'.
+     gs_test-low = 'AA'.
+     gs_test-high = 'AZ'.
+     APPEND gs_test TO s_test1.
+   WHEN OTHERS.
+ ENDCASE.
+
+AT SELECTION-SCREEN.
+   IF p_test1 = 'AA'.
+     MESSAGE 'Sorry, you can"t use this option. Maybe you can choose another' TYPE 'I' DISPLAY LIKE 'W'.
+   ELSE.
+     MESSAGE 'The option is accepted. Thank you' TYPE 'I' DISPLAY LIKE 'S'.
+   ENDIF.
+
+START-OF-SELECTION.
+  WRITE 'Success'.

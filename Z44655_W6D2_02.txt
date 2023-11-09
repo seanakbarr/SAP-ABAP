@@ -1,0 +1,204 @@
+*&---------------------------------------------------------------------*
+*& Report Z44655_W6D1_TEST
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT Z44655_W6D2_02.
+
+TYPE-POOLS VRM.
+
+TYPES: BEGIN OF TS_USER_INFO,
+         USERNAME TYPE XUBNAME,
+         PASSWORD TYPE CHAR100,
+         MATNR    TYPE MATNR,
+       END OF TS_USER_INFO.
+
+DATA GS_USER_INFO TYPE TS_USER_INFO.
+DATA GS_MAT_INFO TYPE MARA.            "MARA = Material's Master Table"
+
+DATA GT_RETURN TYPE STANDARD TABLE OF BAPIRET2.
+DATA GS_RETURN TYPE BAPIRET2.
+DATA GS_ADDR_INFO TYPE BAPIADDR3.
+
+DATA: LV_VRM_ID TYPE VRM_ID VALUE 'GS_MAT_INFO-MATKL',
+      LT_VALUES TYPE VRM_VALUES.
+
+INITIALIZATION.
+  GS_USER_INFO-PASSWORD = 'Handhand'.
+
+START-OF-SELECTION.
+  PERFORM FRM_GET_DATA.
+
+*&---------------------------------------------------------------------*
+*& Module STATUS_9004 OUTPUT
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+MODULE STATUS_9004 OUTPUT.
+
+  SET PF-STATUS '9004'.   "SY-DYNNR'."
+  SET TITLEBAR '9004' WITH TEXT-T01.
+
+ENDMODULE.
+*&---------------------------------------------------------------------*
+*&      Module  USER_COMMAND_9004  INPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE USER_COMMAND_9004 INPUT.
+
+  CASE SY-UCOMM.
+    WHEN '&ZLOGIN'.
+      PERFORM FRM_LOGIN.
+    WHEN OTHERS.
+  ENDCASE.
+
+ENDMODULE.
+*&---------------------------------------------------------------------*
+*&      Module  ON_EXIT_9004  INPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE ON_EXIT_9004 INPUT.
+
+  CASE SY-UCOMM.
+    WHEN '&ZBACK' OR '&ZEND' OR '&ZEXIT'.
+      LEAVE PROGRAM.
+    WHEN OTHERS.
+  ENDCASE.
+
+ENDMODULE.
+
+*&---------------------------------------------------------------------*
+*& Module STATUS_9005 OUTPUT
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+MODULE STATUS_9005 OUTPUT.
+
+  SET PF-STATUS '9004'.
+  SET TITLEBAR '9004' WITH 'Material Information'.
+
+ENDMODULE.
+
+*&---------------------------------------------------------------------*
+*&      Module  USER_COMMAND_9005  INPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE USER_COMMAND_9005 INPUT.
+
+ENDMODULE.
+*&---------------------------------------------------------------------*
+*& Form FRM_LOGIN
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM FRM_LOGIN .
+
+  CLEAR GS_RETURN.
+  CALL FUNCTION 'BAPI_USER_EXISTENCE_CHECK'
+    EXPORTING
+      USERNAME = GS_USER_INFO-USERNAME
+    IMPORTING
+      RETURN   = GS_RETURN.
+  IF GS_RETURN-TYPE = 'I' AND GS_RETURN-ID = '01' AND GS_RETURN-NUMBER = '124' .
+    MESSAGE GS_RETURN-MESSAGE TYPE 'E'.
+  ENDIF.
+
+  CLEAR GT_RETURN.
+  CALL FUNCTION 'BAPI_USER_GET_DETAIL'
+    EXPORTING
+      USERNAME      = GS_USER_INFO-USERNAME
+      CACHE_RESULTS = ABAP_FALSE
+    IMPORTING
+      ADDRESS       = GS_ADDR_INFO
+    TABLES
+      RETURN        = GT_RETURN.
+  IF GS_ADDR_INFO IS NOT INITIAL.
+    CALL SCREEN '9005'.
+  ENDIF.
+
+  CLEAR GS_ADDR_INFO.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Module INIT_9005 OUTPUT
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+MODULE INIT_9005 OUTPUT.
+
+  PERFORM FRM_INIT_9001.
+  PERFORM FRM_SET_LISTBOX.
+
+ENDMODULE.
+
+*&---------------------------------------------------------------------*
+*& Form FRM_INIT_9001
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM FRM_INIT_9001 .
+
+  SELECT SINGLE *
+  FROM MARA
+  INTO CORRESPONDING FIELDS OF GS_MAT_INFO
+  WHERE MATNR = GS_USER_INFO-MATNR.
+
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form FRM_SET_LISTBOX
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM FRM_SET_LISTBOX .
+
+*  APPEND VALUE #( KEY = '01' TEXT = 'GRP 1' ) TO LT_VALUES.
+*  APPEND VALUE #( KEY = '02' TEXT = 'GRP 2' ) TO LT_VALUES.
+*  APPEND VALUE #( KEY = '03' TEXT = 'GRP 3' ) TO LT_VALUES.
+
+  CALL FUNCTION 'VRM_SET_VALUES'
+    EXPORTING
+      ID              = LV_VRM_ID
+      VALUES          = LT_VALUES
+    EXCEPTIONS
+      ID_ILLEGAL_NAME = 1
+      OTHERS          = 2.
+  IF SY-SUBRC <> 0.
+* Implement suitable error handling here
+  ENDIF.
+
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form FRM_GET_DATA
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM FRM_GET_DATA .
+
+  SELECT MATKL AS KEY,
+         WGBEZ AS TEXT
+  FROM T023T
+  INTO CORRESPONDING FIELDS OF TABLE @LT_VALUES
+ WHERE SPRAS = @SY-LANGU.
+
+  CALL SCREEN '9004'.
+
+ENDFORM.
+
+INCLUDE Z44655_W6D2_02_TAB.

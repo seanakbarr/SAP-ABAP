@@ -1,0 +1,240 @@
+*&---------------------------------------------------------------------*
+*& Report Z44655_W2D5A_EXAM
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT Z44655_W2D5A_EXAM.
+
+TABLES: ekko,
+        ekpo.
+
+PARAMETERS: p_werks TYPE ekpo-werks OBLIGATORY DEFAULT '1710'.
+SELECT-OPTIONS: s_ekorg FOR ekko-ekorg DEFAULT '1710',
+                s_ebeln FOR ekko-ebeln,
+                s_matnr FOR ekpo-matnr.
+
+TYPES: BEGIN OF ts_po,
+         ebeln TYPE ekko-ebeln,
+         ebelp TYPE ekpo-ebelp,
+         ekorg TYPE ekko-ekorg,
+         lifnr TYPE ekko-lifnr,
+         name1 TYPE lfa1-name1,
+         werks TYPE ekpo-werks,
+         matnr TYPE ekpo-matnr,
+         maktx TYPE makt-maktx,
+         menge TYPE ekpo-menge,
+         meins TYPE ekpo-meins,
+         netwr TYPE ekpo-netwr,
+         waers TYPE ekko-waers,
+         bpmng TYPE ekbe-bpmng,
+         wrbtr TYPE ekbe-wrbtr,
+       END OF ts_po.
+
+TYPES: tt_po TYPE STANDARD TABLE OF ts_po.
+
+DATA:gt_po TYPE tt_po.
+
+INITIALIZATION.
+
+  PERFORM frm_set_default_value.
+
+AT SELECTION-SCREEN.
+
+  PERFORM frm_check_existence USING p_werks.
+
+START-OF-SELECTION.
+
+  PERFORM frm_get_data CHANGING gt_po.
+
+  PERFORM frm_show_alv.
+
+*&---------------------------------------------------------------------*
+*& Form FRM_SET_DEFAULT_VALUE
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM frm_set_default_value .
+
+  DATA ls_ebeln LIKE LINE OF s_ebeln.
+  ls_ebeln-sign   = ''.
+  ls_ebeln-option = ''.
+  ls_ebeln-low    = '4500000107'.
+  ls_ebeln-high   = ''.
+  APPEND ls_ebeln TO s_ebeln.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form FRM_CHECK_EXISTENCE
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*&      --> P_WERKS
+*&---------------------------------------------------------------------*
+FORM frm_check_existence  USING    pv_werks.
+
+  DATA lv_werks TYPE ekpo-werks.
+  SELECT SINGLE werks
+    FROM t001w
+    INTO lv_werks
+   WHERE werks = pv_werks.
+  IF sy-subrc <> 0.
+    MESSAGE 'Plant not found!' TYPE 'E'.
+  ENDIF.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form FRM_GET_DATA
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM frm_get_data CHANGING ct_po TYPE tt_po.
+
+  SELECT *
+    FROM ekko
+   INNER JOIN ekpo
+      ON ekko~ebeln = ekpo~ebeln
+    INTO CORRESPONDING FIELDS OF TABLE ct_po
+   WHERE ekpo~werks = p_werks
+     AND ekko~ekorg IN s_ekorg
+     AND ekko~ebeln IN s_ebeln
+     AND ekpo~matnr IN s_matnr.
+  IF sy-subrc <> 0.
+    MESSAGE 'No data found!' TYPE 'E'.
+  ENDIF.
+
+  DATA lt_lfa1 TYPE STANDARD TABLE OF lfa1.
+  SELECT *
+    FROM lfa1
+    INTO CORRESPONDING FIELDS OF TABLE lt_lfa1
+     FOR ALL ENTRIES IN ct_po
+   WHERE lfa1~lifnr = ct_po-lifnr.
+  IF sy-subrc = 0.
+    SORT lt_lfa1.
+  ENDIF.
+
+  DATA lt_makt TYPE STANDARD TABLE OF makt.
+  SELECT *
+    FROM makt
+    INTO CORRESPONDING FIELDS OF TABLE lt_makt
+     FOR ALL ENTRIES IN ct_po
+   WHERE makt~matnr = ct_po-matnr
+     AND makt~spras = sy-langu.
+  IF sy-subrc = 0.
+    SORT lt_makt.
+  ENDIF.
+
+  DATA lt_ekbe TYPE STANDARD TABLE OF ekbe.
+  SELECT *
+    FROM ekbe
+    INTO CORRESPONDING FIELDS OF TABLE lt_ekbe
+     FOR ALL ENTRIES IN ct_po
+   WHERE ekbe~ebeln = ct_po-ebeln.
+  IF sy-subrc = 0.
+    SORT lt_ekbe.
+  ENDIF.
+
+  DATA ls_po TYPE ts_po.
+  DATA ls_lfa1 LIKE LINE OF lt_lfa1.
+  DATA ls_makt LIKE LINE OF lt_makt.
+  DATA ls_ekbe LIKE LINE OF lt_ekbe.
+
+  LOOP AT ct_po INTO ls_po.
+
+    DATA(lv_tabix) = sy-tabix.
+
+    READ TABLE lt_lfa1 INTO ls_lfa1 WITH KEY lifnr = ls_po-lifnr
+                                    BINARY SEARCH.
+    IF sy-subrc = 0.
+      ls_po-name1 = ls_lfa1-name1.
+      CLEAR ls_lfa1.
+    ENDIF.
+
+    READ TABLE lt_makt INTO ls_makt WITH KEY matnr = ls_po-matnr
+                                BINARY SEARCH.
+    IF sy-subrc = 0.
+      ls_po-maktx = ls_makt-maktx.
+      CLEAR ls_makt.
+    ENDIF.
+
+    READ TABLE lt_ekbe INTO ls_ekbe WITH KEY ebeln = ls_po-ebeln
+                                BINARY SEARCH.
+    IF sy-subrc = 0.
+      ls_po-ebeln = ls_ekbe-ebeln.
+      CLEAR ls_ekbe.
+    ENDIF.
+
+    LOOP AT lt_ekbe INTO ls_ekbe WHERE ebeln = ls_po-ebeln
+                                 AND ebelp = ls_po-ebelp.
+
+    IF ls_ekbe-shkzg = 'S'.
+      ls_po-bpmng += ls_ekbe-bpmng.
+      ls_po-wrbtr += ls_ekbe-bpmng.
+    ELSE.
+      ls_po-bpmng -= ls_ekbe-bpmng.
+      ls_po-wrbtr -= ls_ekbe-wrbtr.
+    ENDIF.
+    CLEAR ls_ekbe.
+
+*    COLLECT data INTO table.
+
+  ENDLOOP.
+
+
+    MODIFY ct_po FROM ls_po.
+
+  ENDLOOP.
+
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form frm_show_alv
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM frm_show_alv .
+
+  DATA: lt_fcat TYPE lvc_t_fcat.
+
+  APPEND VALUE #( fieldname = 'EBELN' coltext = 'Purch.Doc.' )               TO lt_fcat.
+  APPEND VALUE #( fieldname = 'EBELP' coltext = 'Item' )                     TO lt_fcat.
+  APPEND VALUE #( fieldname = 'EKORG' coltext = 'Item	Purchasing org.' )     TO lt_fcat.
+  APPEND VALUE #( fieldname = 'LIFNR' coltext = 'Vendor' )                   TO lt_fcat.
+  APPEND VALUE #( fieldname = 'NAME1' coltext = 'Vendor Name' )              TO lt_fcat.
+  APPEND VALUE #( fieldname = 'WERKS' coltext = 'Plant' )                    TO lt_fcat.
+  APPEND VALUE #( fieldname = 'MATNR' coltext = 'Material Number' )          TO lt_fcat.
+  APPEND VALUE #( fieldname = 'MAKTX' coltext = 'Material description' )     TO lt_fcat.
+  APPEND VALUE #( fieldname = 'MENGE' coltext = 'PO Quantity' )              TO lt_fcat.
+  APPEND VALUE #( fieldname = 'MEINS' coltext = 'Order Unit' )               TO lt_fcat.
+  APPEND VALUE #( fieldname = 'NETWR' coltext = 'Net Order Value' )          TO lt_fcat.
+  APPEND VALUE #( fieldname = 'WAERS' coltext = 'Currency' )                 TO lt_fcat.
+  APPEND VALUE #( fieldname = 'BPMNG' coltext = 'Received Qty' )             TO lt_fcat.
+  APPEND VALUE #( fieldname = 'WRBTR' coltext = 'Received Value' )           TO lt_fcat.
+
+  DATA ls_layout TYPE lvc_s_layo.
+  ls_layout-cwidth_opt = 'X'.
+  ls_layout-zebra = 'X'.
+
+  CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY_LVC'
+    EXPORTING
+      i_grid_title    = 'The assessment of week 1-ALV Report-Author: 44655 + Sean'
+      is_layout_lvc   = ls_layout
+      it_fieldcat_lvc = lt_fcat
+    TABLES
+      t_outtab        = gt_po
+    EXCEPTIONS
+      program_error   = 1
+      OTHERS          = 2.
+  IF sy-subrc <> 0.
+
+  ENDIF.
+
+ENDFORM.

@@ -1,0 +1,449 @@
+*&---------------------------------------------------------------------*
+*& Report Z44655_W7D4_02
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT Z44655_W7D4_03.
+
+PARAMETERS P_CARRID TYPE S_CARRID.
+
+CLASS LCL_PROG DEFINITION
+  CREATE PRIVATE.
+
+  PUBLIC SECTION.
+
+    TYPES: TY_SCARR  TYPE SCARR,
+           TTY_SCARR TYPE STANDARD TABLE OF TY_SCARR.
+
+    DATA GV_IS_FIRST_CALL TYPE ABAP_BOOL VALUE ABAP_TRUE.
+
+    DATA: GT_SCARR TYPE TTY_SCARR,
+          GS_SCARR TYPE TY_SCARR.
+
+    METHODS INITIALIZATION.
+    METHODS AT_SELECTION_SCREEN.
+    METHODS GET_DATA.
+
+    METHODS GET_FCAT
+      IMPORTING
+        IV_TABNAME     TYPE TABNAME
+      RETURNING
+        VALUE(RV_FCAT) TYPE LVC_T_FCAT.
+
+    METHODS GET_LAYOUT
+      IMPORTING
+        IV_BOX_NAME      TYPE C OPTIONAL
+        IV_STYLE_TAB     TYPE C OPTIONAL
+        IV_COLOR_TAB     TYPE C OPTIONAL
+        IV_TITLE         TYPE C OPTIONAL
+      RETURNING
+        VALUE(RV_LAYOUT) TYPE LVC_S_LAYO.
+
+    METHODS GET_CONTAINER
+      IMPORTING
+        IV_NAME             TYPE C
+      RETURNING
+        VALUE(RO_CONTAINER) TYPE REF TO CL_GUI_CUSTOM_CONTAINER.
+
+    METHODS GET_ALV
+      IMPORTING
+        IO_CONTAINER  TYPE REF TO CL_GUI_CUSTOM_CONTAINER
+      RETURNING
+        VALUE(RO_ALV) TYPE REF TO CL_GUI_ALV_GRID.
+
+    METHODS SHOW_ALV.
+
+    METHODS MAIN.
+
+    CLASS-METHODS GET_INSTANCE
+      RETURNING VALUE(RV_INSTANCE) TYPE REF TO LCL_PROG.
+
+  PROTECTED SECTION.
+
+  PRIVATE SECTION.
+
+*    DATA: GT_SCARR TYPE TTY_SCARR,
+*          GS_SCARR TYPE TY_SCARR.
+
+    METHODS CONSTRUCTOR.
+
+    CLASS-DATA GO_INSTANCE TYPE REF TO LCL_PROG.
+
+ENDCLASS.
+
+CLASS LCL_ALV_EVENT_SCARR DEFINITION.
+
+  PUBLIC SECTION.
+
+    METHODS CONSTRUCTOR
+      IMPORTING
+        IO_GRID TYPE REF TO CL_GUI_ALV_GRID.
+
+    METHODS ON_TOOLBAR
+      FOR EVENT TOOLBAR OF CL_GUI_ALV_GRID
+      IMPORTING
+        E_OBJECT
+        E_INTERACTIVE.
+
+    METHODS ON_USER_COMMAND
+      FOR EVENT USER_COMMAND OF CL_GUI_ALV_GRID
+      IMPORTING
+        E_UCOMM.
+
+    METHODS ON_HOTSPOT_CLICK
+      FOR EVENT HOTSPOT_CLICK OF CL_GUI_ALV_GRID
+      IMPORTING
+        E_ROW_ID
+        E_COLUMN_ID
+        ES_ROW_NO.
+
+    METHODS ON_DOUBLE_CLICK
+      FOR EVENT DOUBLE_CLICK OF CL_GUI_ALV_GRID
+      IMPORTING
+        E_ROW
+        E_COLUMN
+        ES_ROW_NO.
+
+    METHODS ON_DATA_CHANGED_FINISHED
+      FOR EVENT DATA_CHANGED_FINISHED OF CL_GUI_ALV_GRID
+      IMPORTING
+        E_MODIFIED
+        ET_GOOD_CELLS.
+
+    METHODS ON_DATA_CHANGED
+      FOR EVENT DATA_CHANGED OF CL_GUI_ALV_GRID
+      IMPORTING
+        ER_DATA_CHANGED
+        E_ONF4
+        E_ONF4_BEFORE
+        E_ONF4_AFTER
+        E_UCOMM.
+
+  PRIVATE SECTION.
+      DATA GO_GRID TYPE REF TO CL_GUI_ALV_GRID.
+
+ENDCLASS.
+
+INITIALIZATION.
+
+  DATA GO_PROG TYPE REF TO LCL_PROG.
+  GO_PROG = LCL_PROG=>GET_INSTANCE( ).
+  GO_PROG->INITIALIZATION( ).
+
+AT SELECTION-SCREEN.
+
+  GO_PROG->AT_SELECTION_SCREEN( ).
+
+START-OF-SELECTION.
+  GO_PROG->MAIN( ).
+
+CLASS LCL_PROG IMPLEMENTATION.
+
+  METHOD CONSTRUCTOR.
+
+  ENDMETHOD.
+
+  METHOD INITIALIZATION.
+
+
+  ENDMETHOD.
+
+  METHOD AT_SELECTION_SCREEN.
+
+
+  ENDMETHOD.
+
+  METHOD GET_DATA.
+
+    SELECT *
+      FROM SCARR
+     INTO TABLE GT_SCARR
+    WHERE CARRID = P_CARRID.
+
+    IF SY-SUBRC <> 0.
+      MESSAGE 'No data found!' TYPE 'E'.
+    ENDIF.
+
+  ENDMETHOD.
+
+  METHOD GET_FCAT.
+
+    CALL FUNCTION 'LVC_FIELDCATALOG_MERGE'
+      EXPORTING
+        I_STRUCTURE_NAME       = IV_TABNAME
+      CHANGING
+        CT_FIELDCAT            = RV_FCAT
+      EXCEPTIONS
+        INCONSISTENT_INTERFACE = 1
+        PROGRAM_ERROR          = 2
+        OTHERS                 = 3.
+    IF SY-SUBRC <> 0.
+* Implement suitable error handling here
+    ENDIF.
+
+  ENDMETHOD.
+
+  METHOD GET_LAYOUT.
+
+    RV_LAYOUT-CWIDTH_OPT = ABAP_TRUE.
+    RV_LAYOUT-ZEBRA      = ABAP_TRUE.
+    RV_LAYOUT-BOX_FNAME  = IV_BOX_NAME.
+    RV_LAYOUT-STYLEFNAME = IV_STYLE_TAB.
+    RV_LAYOUT-CTAB_FNAME = IV_COLOR_TAB.
+    RV_LAYOUT-GRID_TITLE = IV_TITLE.
+
+  ENDMETHOD.
+
+  METHOD GET_CONTAINER.
+
+    CREATE OBJECT RO_CONTAINER
+      EXPORTING
+        CONTAINER_NAME = IV_NAME.
+  ENDMETHOD.
+
+  METHOD GET_ALV.
+
+    CREATE OBJECT RO_ALV
+      EXPORTING
+        I_PARENT = IO_CONTAINER.
+
+  ENDMETHOD.
+
+  METHOD SHOW_ALV.
+
+    GET_DATA( ).
+
+    DATA LO_CONTAINER TYPE REF TO CL_GUI_CUSTOM_CONTAINER.
+    DATA LO_GRID TYPE REF TO CL_GUI_ALV_GRID.
+
+    LO_CONTAINER = GET_CONTAINER( 'SCARR' ).
+    LO_GRID      = GET_ALV( LO_CONTAINER ).
+
+    LO_GRID->SET_READY_FOR_INPUT( 1 ).
+    LO_GRID->REGISTER_EDIT_EVENT( LO_GRID->MC_EVT_MODIFIED ).
+
+    DATA LO_EVENT TYPE REF TO LCL_ALV_EVENT_SCARR.
+    CREATE OBJECT LO_EVENT
+      EXPORTING
+        IO_GRID = LO_GRID.
+
+    SET HANDLER LO_EVENT->ON_TOOLBAR FOR LO_GRID.
+    SET HANDLER LO_EVENT->ON_USER_COMMAND FOR LO_GRID.
+    SET HANDLER LO_EVENT->ON_HOTSPOT_CLICK FOR LO_GRID.
+    SET HANDLER LO_EVENT->ON_DOUBLE_CLICK FOR LO_GRID.
+    SET HANDLER LO_EVENT->ON_DATA_CHANGED_FINISHED FOR LO_GRID.
+    SET HANDLER LO_EVENT->ON_DATA_CHANGED FOR LO_GRID.
+
+    DATA LT_FCAT TYPE LVC_T_FCAT.
+    LT_FCAT = GET_FCAT( 'SCARR' ).
+
+    LT_FCAT[ FIELDNAME = 'CARRID' ]-HOTSPOT = ABAP_TRUE.
+    LT_FCAT[ FIELDNAME = 'CURRCODE' ]-EDIT = ABAP_TRUE.
+
+    CALL METHOD LO_GRID->SET_TABLE_FOR_FIRST_DISPLAY
+      EXPORTING
+        I_SAVE                        = 'A'
+        I_DEFAULT                     = 'X'
+        IS_LAYOUT                     = GET_LAYOUT( IV_TITLE = 'SCARR Table' )
+      CHANGING
+        IT_OUTTAB                     = GT_SCARR
+        IT_FIELDCATALOG               = LT_FCAT
+      EXCEPTIONS
+        INVALID_PARAMETER_COMBINATION = 1
+        PROGRAM_ERROR                 = 2
+        TOO_MANY_LINES                = 3
+        OTHERS                        = 4.
+    IF SY-SUBRC <> 0.
+*     Implement suitable error handling here
+    ENDIF.
+
+
+  ENDMETHOD.
+
+  METHOD MAIN.
+
+    CALL SCREEN 9000.
+
+  ENDMETHOD.
+
+  METHOD GET_INSTANCE.
+
+    IF GO_INSTANCE IS NOT BOUND.
+      CREATE OBJECT GO_INSTANCE.
+    ENDIF.
+    RV_INSTANCE = GO_INSTANCE.
+
+  ENDMETHOD.
+
+ENDCLASS.
+
+CLASS LCL_ALV_EVENT_SCARR IMPLEMENTATION.
+
+    METHOD CONSTRUCTOR.
+      GO_GRID = IO_GRID.
+    ENDMETHOD.
+
+    METHOD ON_TOOLBAR.
+
+      DATA LS_BUTTON1 LIKE LINE OF E_OBJECT->MT_TOOLBAR.
+*   DATA LS_BUTTON2 LIKE LINE OF E_OBJECT->MT_TOOLBAR.
+*   DATA LS_BUTTON3 LIKE LINE OF E_OBJECT->MT_TOOLBAR.
+
+      LS_BUTTON1-FUNCTION   = '&ZPOPUP'.
+      LS_BUTTON1-ICON       = ICON_MESSAGE_WARNING.
+      LS_BUTTON1-TEXT       = 'Pop Up'.
+      LS_BUTTON1-QUICKINFO  = 'Pop Up a Message'.
+
+      APPEND LS_BUTTON1 TO E_OBJECT->MT_TOOLBAR.
+*   APPEND LS_BUTTON2 TO E_OBJECT->MT_TOOLBAR.
+*   APPEND LS_BUTTON3 TO E_OBJECT->MT_TOOLBAR.
+
+    ENDMETHOD.
+
+    METHOD ON_USER_COMMAND.
+
+      CASE E_UCOMM.
+        WHEN '&ZPOPUP'.
+          MESSAGE 'OMG, you brought a wrong thing' TYPE 'E'.
+        WHEN OTHERS.
+      ENDCASE.
+
+    ENDMETHOD.
+
+    METHOD ON_HOTSPOT_CLICK.
+
+      CASE E_COLUMN_ID-FIELDNAME.
+        WHEN 'CARRID'.
+          READ TABLE GO_PROG->GT_SCARR INTO GO_PROG->GS_SCARR INDEX ES_ROW_NO-ROW_ID.
+          IF SY-SUBRC = 0.
+            CL_DEMO_OUTPUT=>DISPLAY( GO_PROG->GS_SCARR-CARRID ).
+          ENDIF.
+        WHEN OTHERS.
+      ENDCASE.
+
+    ENDMETHOD.
+
+    METHOD ON_DOUBLE_CLICK.
+
+      READ TABLE GO_PROG->GT_SCARR INTO GO_PROG->GS_SCARR INDEX ES_ROW_NO-ROW_ID.
+      IF SY-SUBRC = 0.
+        CL_DEMO_OUTPUT=>DISPLAY( GO_PROG->GS_SCARR ).
+      ENDIF.
+
+    ENDMETHOD.
+
+    METHOD ON_DATA_CHANGED_FINISHED.
+
+      DATA LS_CELL LIKE LINE OF ET_GOOD_CELLS.
+      READ TABLE ET_GOOD_CELLS INTO LS_CELL INDEX 1.
+      IF SY-SUBRC = 0 AND LS_CELL-FIELDNAME = 'CURRCODE'.
+        CASE LS_CELL-VALUE.
+          WHEN 'USD'.
+            GO_PROG->GT_SCARR[ LS_CELL-TABIX ]-URL = 'ABC'.
+          WHEN OTHERS.
+        ENDCASE.
+      ENDIF.
+
+      GO_GRID->REFRESH_TABLE_DISPLAY( ).
+
+    ENDMETHOD.
+
+    METHOD ON_DATA_CHANGED.
+
+      FIELD-SYMBOLS <TABLE> TYPE GO_PROG->TTY_SCARR.
+      ASSIGN GO_PROG->GT_SCARR TO <TABLE>.
+
+      READ TABLE ER_DATA_CHANGED->MT_MOD_CELLS ASSIGNING FIELD-SYMBOL(<CELL>) WITH KEY FIELDNAME = 'CURRCODE'.
+      IF SY-SUBRC = 0.
+
+        IF <TABLE>[ <CELL>-ROW_ID ]-CARRID = 'AA' AND <CELL>-VALUE <> 'USD'.
+
+          ER_DATA_CHANGED->ADD_PROTOCOL_ENTRY(
+                            I_MSGID     = '00'
+                            I_MSGTY     = 'E'
+                            I_MSGNO     = '001'
+                            I_MSGV1     = 'Currency in AA Carr ID only can be edited to USD'
+                            I_FIELDNAME = <CELL>-FIELDNAME ).
+
+          ER_DATA_CHANGED->MODIFY_CELL(
+                            I_ROW_ID    = <CELL>-ROW_ID
+                            I_FIELDNAME = <CELL>-FIELDNAME
+                            I_VALUE     = <TABLE>[ <CELL>-ROW_ID ]-CURRCODE ).
+
+        ENDIF.
+
+    ENDIF.
+
+*      FIELD-SYMBOLS <TABLE> TYPE GO_PROG=>GT_SCARR.
+*      ASSIGN HALV->GRID->OUTTAB->* TO <TABLE>.
+
+*      READ TABLE ER_DATA_CHANGED->MT_MOD_CELLS INTO DATA(CELL) WITH KEY FIELDNAME = 'CURRCODE'.
+*      IF SY-SUBRC = 0.
+*
+*        IF GO_PROG->GT_SCARR[ CELL-ROW_ID ]-CARRID = 'AA' AND CELL-VALUE <> 'USD'.
+*
+*          ER_DATA_CHANGED->ADD_PROTOCOL_ENTRY(
+*                            I_MSGID     = '00'
+*                            I_MSGTY     = 'E'
+*                            I_MSGNO     = '001'
+*                            I_MSGV1     = 'Currency in AA Carr ID only can edited to USD'
+*                            I_FIELDNAME = CELL-FIELDNAME ).
+*
+*          ER_DATA_CHANGED->MODIFY_CELL(
+*                            I_ROW_ID    = CELL-ROW_ID
+*                            I_FIELDNAME = CELL-FIELDNAME
+*                            I_VALUE     = GO_PROG->GT_SCARR[ CELL-ROW_ID ]-CURRCODE ).
+*
+*        ENDIF.
+*
+*    ENDIF.
+
+    ENDMETHOD.
+
+ENDCLASS.
+
+*&---------------------------------------------------------------------*
+*& Module STATUS_9000 OUTPUT
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+MODULE STATUS_9000 OUTPUT.
+
+  SET PF-STATUS SY-DYNNR.
+  SET TITLEBAR SY-DYNNR WITH TEXT-001.
+
+  IF GO_PROG->GV_IS_FIRST_CALL = ABAP_TRUE.
+
+    GO_PROG->SHOW_ALV( ).
+
+    GO_PROG->GV_IS_FIRST_CALL = ABAP_FALSE.
+
+  ENDIF.
+
+ENDMODULE.
+
+*&---------------------------------------------------------------------*
+*&      Module  ON_EXIT_9000  INPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE ON_EXIT_9000 INPUT.
+
+  CASE SY-UCOMM.
+    WHEN '&ZBACK' OR '&ZEXIT'.
+      LEAVE TO SCREEN 0.
+    WHEN '&ZEND'.
+      LEAVE PROGRAM.
+    WHEN OTHERS.
+  ENDCASE.
+
+ENDMODULE.
+
+*&---------------------------------------------------------------------*
+*&      Module  USER_COMMAND_9000  INPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE USER_COMMAND_9000 INPUT.
+
+ENDMODULE.

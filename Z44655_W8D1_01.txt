@@ -1,0 +1,46 @@
+*&---------------------------------------------------------------------*
+*& Report Z44655_W8D1_01
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT Z44655_W8D1_01.
+
+DATA GT_SCARR TYPE STANDARD TABLE OF SCARR.
+DATA GS_SCARR TYPE SCARR.
+
+SELECT *
+  FROM SCARR
+  INTO CORRESPONDING FIELDS OF TABLE GT_SCARR.
+
+DATA: LT_FCAT TYPE LVC_T_FCAT.
+DATA: LS_LAYOUT TYPE LVC_S_LAYO.
+
+LS_LAYOUT-CWIDTH_OPT = ABAP_TRUE.
+
+CALL FUNCTION 'LVC_FIELDCATALOG_MERGE'
+  EXPORTING
+    I_STRUCTURE_NAME       = 'SCARR'
+  CHANGING
+    CT_FIELDCAT            = LT_FCAT
+  EXCEPTIONS
+    INCONSISTENT_INTERFACE = 1
+    PROGRAM_ERROR          = 2
+    OTHERS                 = 3.
+
+
+CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY_LVC'
+  EXPORTING
+   I_CALLBACK_PROGRAM                = SY-REPID
+   IS_LAYOUT_LVC                     = LS_LAYOUT
+   IT_FIELDCAT_LVC                   = LT_FCAT
+   I_DEFAULT                         = 'X'
+   I_SAVE                            = 'A'
+  TABLES
+    T_OUTTAB                         = GT_SCARR
+ EXCEPTIONS
+   PROGRAM_ERROR                     = 1
+   OTHERS                            = 2
+.
+IF SY-SUBRC <> 0.
+* Implement suitable error handling here
+ENDIF.

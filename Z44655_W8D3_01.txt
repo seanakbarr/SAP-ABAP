@@ -1,0 +1,167 @@
+*&---------------------------------------------------------------------*
+*& Report Z44655_W8D3_01
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT Z44655_W8D3_01.
+
+PARAMETERS: P_CARRID TYPE S_CARRID DEFAULT 'AA'.
+
+TYPES: BEGIN OF TS_SCARR.
+TYPES:    ZBOX TYPE XFELD.
+          INCLUDE TYPE SCARR.
+TYPES: END OF TS_SCARR.
+
+TYPES TT_SCARR TYPE STANDARD TABLE OF TS_SCARR.
+
+TYPES: BEGIN OF TS_SBOOK.
+TYPES:    ZBOX TYPE XFELD.
+          INCLUDE TYPE SBOOK.
+TYPES: END OF TS_SBOOK.
+
+TYPES TT_SBOOK TYPE STANDARD TABLE OF TS_SBOOK.
+
+DATA GT_SCARR TYPE TT_SCARR.
+DATA GT_SBOOK TYPE TT_SBOOK.
+
+DATA GO_SBOOK TYPE REF TO ZHDCL_HALV_PARENT.
+
+START-OF-SELECTION.
+
+  PERFORM FRM_GET_DATA.
+  PERFORM FRM_SHOW_ALV.
+
+*&---------------------------------------------------------------------*
+*& Module STATUS_9000 OUTPUT
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+MODULE STATUS_9000 OUTPUT.
+
+*  CALL FUNCTION 'ZHDFM_HALV_MULT_DISPLAY'.
+  ZHDCL_HALV_CUST=>SHOW( ).
+  SET PF-STATUS SY-DYNNR.
+  SET TITLEBAR 'xxx'.
+
+ENDMODULE.
+
+*&---------------------------------------------------------------------*
+*&      Module  ON_EXIT_9000  INPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE ON_EXIT_9000 INPUT.
+
+  CASE SY-UCOMM.
+    WHEN '&ZBACK' OR '&ZEXIT'.
+      ZHDCL_HALV_CUST=>CLEAR( ).
+      LEAVE TO SCREEN 0.
+    WHEN '&ZEND'.
+      LEAVE PROGRAM.
+    WHEN OTHERS.
+  ENDCASE.
+
+ENDMODULE.
+
+*&---------------------------------------------------------------------*
+*&      Module  USER_COMMAND_9000  INPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE USER_COMMAND_9000 INPUT.
+
+
+ENDMODULE.
+
+*&---------------------------------------------------------------------*
+*& Form FRM_GET_DATA
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM FRM_GET_DATA .
+
+ SELECT *
+   FROM SCARR
+  INTO CORRESPONDING FIELDS OF TABLE GT_SCARR
+ WHERE CARRID = P_CARRID.
+
+ IF SY-SUBRC = 0.
+
+    SELECT *
+      FROM SBOOK
+     INTO CORRESPONDING FIELDS OF TABLE GT_SBOOK
+     FOR ALL ENTRIES IN GT_SCARR
+    WHERE CARRID = GT_SCARR-CARRID.
+
+ ENDIF.
+
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form FRM_SHOW_ALV
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM FRM_SHOW_ALV .
+
+   DATA(LO_SPLITTER) = NEW CL_GUI_SPLITTER_CONTAINER(
+                            COLUMNS = 2
+                            ROWS    = 1
+                            PARENT  = NEW CL_GUI_CUSTOM_CONTAINER( CONTAINER_NAME = 'CONTAINER' ) ).
+
+   ZHDCL_HALV_FACTORY=>GET_HALV( VALUE #( TYPE               = 'HALV_CUST'
+                                         DYNNR              = '9000'
+                                         CHECKBOX_NAME      = 'ZBOX'
+                                         CONTAINER_POSITION = '01'
+                                         BIND_ITAB          = ABAP_TRUE
+                                         CONTAINER          = LO_SPLITTER->GET_CONTAINER( COLUMN = 1 ROW = 1 ) )
+                    )->BIND( CHANGING ITAB = GT_SCARR ).
+
+  GO_SBOOK ?= ZHDCL_HALV_FACTORY=>GET_HALV( VALUE #( TYPE               = 'HALV_CUST'
+                                                     DYNNR              = '9000'
+                                                     CHECKBOX_NAME      = 'ZBOX'
+                                                     CONTAINER_POSITION = '02'
+                                                     BIND_ITAB          = ABAP_TRUE
+                                                     CONTAINER          = LO_SPLITTER->GET_CONTAINER( COLUMN = 2 ROW = 1 ) )
+                    )->BIND( CHANGING ITAB = GT_SBOOK ).
+
+
+
+  CALL SCREEN 9000.
+
+ENDFORM.
+
+* Change
+FORM F9000_01_HANDLE_CHANGED_OVER USING PO_TALV       TYPE REF TO ZHDCL_HALV_PARENT
+                                        PV_MODIFIED   TYPE CHAR01
+                                        PT_GOOD_CELLS TYPE LVC_T_MODI
+                               CHANGING CT_ALV_TABLE  TYPE STANDARD TABLE.
+
+  CHECK PT_GOOD_CELLS IS NOT INITIAL.
+
+  DATA(LV_CARRID) = GT_SCARR[ PT_GOOD_CELLS[ 1 ]-ROW_ID ]-CARRID.
+
+  DATA LS_SBOOK TYPE TS_SBOOK.
+  IF LINE_EXISTS( GT_SBOOK[ CARRID = LV_CARRID ] ) AND GT_SBOOK[ CARRID = LV_CARRID ]-ZBOX = ABAP_FALSE.
+
+    LS_SBOOK-ZBOX = ABAP_TRUE.
+    MODIFY GT_SBOOK FROM LS_SBOOK TRANSPORTING ZBOX WHERE ZBOX = ABAP_FALSE.
+
+  ELSE.
+
+    LS_SBOOK-ZBOX = ABAP_FALSE.
+    MODIFY GT_SBOOK FROM LS_SBOOK TRANSPORTING ZBOX WHERE ZBOX = ABAP_TRUE.
+
+  ENDIF.
+
+  GO_SBOOK->REFRESH( ).
+
+*  PO_HALV->REFRESH( ).
+
+ENDFORM.

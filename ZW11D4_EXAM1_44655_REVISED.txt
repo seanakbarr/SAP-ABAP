@@ -1,0 +1,175 @@
+*&---------------------------------------------------------------------*
+*& Report ZW11D4_EXAM1_44655
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT zw11d4_exam1_44655_revised.
+
+DATA: gs_header TYPE zsgm_header_44655,
+      gt_item   TYPE STANDARD TABLE OF zsgm_item_44655,
+      gs_item   TYPE zsgm_item_44655.
+
+CLASS lcl_prog DEFINITION CREATE PRIVATE .
+
+  PUBLIC SECTION.
+    METHODS main.
+    METHODS initialization.
+    METHODS set_listbox.
+    METHODS on_double_click.
+    METHODS set_initrows_item.
+    METHODS set_default_move.
+    METHODS get_container
+      IMPORTING
+        iv_name             TYPE c
+      RETURNING
+        VALUE(ro_container) TYPE REF TO cl_gui_custom_container.
+
+    CLASS-METHODS get_instance
+      RETURNING VALUE(ro_instance) TYPE REF TO lcl_prog.
+
+  PROTECTED SECTION.
+
+  PRIVATE SECTION.
+    METHODS constructor.
+    CLASS-DATA go_instance TYPE REF TO lcl_prog.
+
+ENDCLASS.
+
+CLASS lcl_prog IMPLEMENTATION.
+
+  METHOD constructor.
+
+  ENDMETHOD.
+
+  METHOD get_instance.
+    IF lcl_prog=>go_instance IS NOT BOUND.
+      CREATE OBJECT lcl_prog=>go_instance.
+    ENDIF.
+
+    ro_instance = lcl_prog=>go_instance.
+  ENDMETHOD.
+
+  METHOD get_container.
+
+    CREATE OBJECT ro_container
+      EXPORTING
+        container_name = iv_name.
+
+  ENDMETHOD.
+
+  METHOD initialization.
+
+  ENDMETHOD.
+
+  METHOD set_listbox.
+
+    DATA: lv_vrm_id TYPE vrm_id VALUE 'GS_HEADER-GM_CODE',
+          lt_code   TYPE vrm_values.
+
+    SELECT gmcode AS key,
+           tcode  AS text
+      FROM t158g
+      INTO CORRESPONDING FIELDS OF TABLE @lt_code.
+
+    CALL FUNCTION 'VRM_SET_VALUES'
+      EXPORTING
+        id              = lv_vrm_id
+        values          = lt_code
+      EXCEPTIONS
+        id_illegal_name = 1
+        OTHERS          = 2.
+    IF sy-subrc <> 0.
+* Implement suitable error handling here
+    ENDIF.
+
+  ENDMETHOD.
+
+  METHOD on_double_click.
+
+  ENDMETHOD.
+
+  METHOD set_initrows_item.
+
+    IF gt_item IS INITIAL.
+      DO 3 TIMES.
+        APPEND INITIAL LINE TO gt_item.
+      ENDDO.
+    ENDIF.
+
+  ENDMETHOD.
+
+  METHOD set_default_move.
+
+    LOOP AT GT_ITEM INTO GS_ITEM.
+
+      GS_ITEM-BWART = '561'.
+      APPEND GS_ITEM TO GT_ITEM.
+
+    ENDLOOP.
+
+  ENDMETHOD.
+
+  METHOD main.
+    CALL SCREEN '9000'.
+  ENDMETHOD.
+
+ENDCLASS.
+
+INITIALIZATION.
+  DATA go_prog TYPE REF TO lcl_prog.
+  go_prog = lcl_prog=>get_instance( ).
+  go_prog->initialization( ).
+
+START-OF-SELECTION.
+  go_prog->main( ).
+
+*INCLUDE ZW11D4_EXAM1_44667_TC .
+*&---------------------------------------------------------------------*
+*& Module STATUS_9000 OUTPUT
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+MODULE status_9000 OUTPUT.
+
+  SET PF-STATUS sy-dynnr.
+  SET TITLEBAR sy-dynnr WITH TEXT-t01.
+  go_prog->set_listbox( ).
+
+ENDMODULE.
+*&---------------------------------------------------------------------*
+*&      Module  USER_COMMAND_9000  INPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE user_command_9000 INPUT.
+
+ENDMODULE.
+*&---------------------------------------------------------------------*
+*&      Module  ON_EXIT_9000  INPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE on_exit_9000 INPUT.
+
+  CASE sy-ucomm.
+    WHEN '&ZBACK' OR '&ZEND'.
+      LEAVE TO SCREEN 0.
+    WHEN '&ZEXIT'.
+      LEAVE PROGRAM.
+    WHEN OTHERS.
+  ENDCASE.
+
+ENDMODULE.
+
+*&SPWizard: Data incl. inserted by SP Wizard. DO NOT CHANGE THIS LINE!
+INCLUDE ZW11D4_EXAM1_44655_REVISED_TC .
+*&---------------------------------------------------------------------*
+*& Module INIT_9001 OUTPUT
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+MODULE init_9001 OUTPUT.
+
+    go_prog->set_initrows_item( ).
+
+ENDMODULE.

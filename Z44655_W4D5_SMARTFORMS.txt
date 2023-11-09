@@ -1,0 +1,95 @@
+*&---------------------------------------------------------------------*
+*& Report Z44655_W4D5_SMARTFORMS
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT Z44655_W4D5_SMARTFORMS.
+
+DATA GS_CONTROL_PARAMETERS TYPE SSFCTRLOP.
+GS_CONTROL_PARAMETERS-NO_DIALOG = ABAP_TRUE.    " To use No_DIALOG "
+GS_CONTROL_PARAMETERS-PREVIEW = ABAP_TRUE.      " To use PREVIEW "
+
+DATA GS_OUTPUT_OPTIONS TYPE SSFCOMPOP.
+
+DATA GS_JOB_OUTPUT_INFO TYPE SSFCRESCL.
+
+DATA GV_FORNAME TYPE TDSFNAME.
+GV_FORNAME = 'ZSF44655_002'.
+
+DATA GV_FNAME TYPE RS38L_FNAM.
+
+CALL FUNCTION 'SSF_FUNCTION_MODULE_NAME'
+  EXPORTING
+    FORMNAME                 = GV_FORNAME
+  IMPORTING
+    FM_NAME                  = GV_FNAME
+  EXCEPTIONS
+    NO_FORM                  = 1
+    NO_FUNCTION_MODULE       = 2
+    OTHERS                   = 3
+          .
+IF SY-SUBRC <> 0.
+* Implement suitable error handling here
+ENDIF.
+
+DATA GT_ITEMS TYPE ZTTSF44655_002.
+DATA GS_ITEM TYPE ZSSF44655_002.
+
+DATA GS_HEADERLINE TYPE ZSSF44655_002_HEADER.
+GS_HEADERLINE-HEADERLINE = 'HAND'.
+
+DO 15 TIMES.
+  GS_ITEM-SNO     = sy-index.
+  GS_ITEM-COMPANY = GS_HEADERLINE-HEADERLINE.
+  GS_ITEM-NAME    = 'EMP' && sy-index.
+  IF sy-index MOD 2 <> 0.
+    GS_ITEM-GENDER = 'Male'.
+  ELSE.
+    GS_ITEM-GENDER = 'Female'.
+  ENDIF.
+  GS_ITEM-AGE     = sy-index * 10.
+  GS_ITEM-ADDRESS = 'Central Jakarta'.
+  APPEND GS_ITEM TO GT_ITEMS.
+ENDDO.
+
+DATA LS_OUTPUT_DATA TYPE SSFCRESCL.
+" Alternative way to use a function, if we don't know the code name of our Smart Forms
+CALL FUNCTION GV_FNAME
+ EXPORTING
+   CONTROL_PARAMETERS         = GS_CONTROL_PARAMETERS
+   OUTPUT_OPTIONS             = GS_OUTPUT_OPTIONS
+   USER_SETTINGS              = ABAP_FALSE
+   IV_QR_CODE_CONTENT         = 'Sean' && SY-DATUM
+   IS_HEADER                  = GS_HEADERLINE
+ IMPORTING
+   JOB_OUTPUT_INFO            = LS_OUTPUT_DATA
+   TABLES
+     IT_ITEMS                 = GT_ITEMS
+ EXCEPTIONS
+   FORMATTING_ERROR           = 1
+   INTERNAL_ERROR             = 2
+   SEND_ERROR                 = 3
+   USER_CANCELED              = 4
+   OTHERS                     = 5
+          .
+IF SY-SUBRC <> 0.
+* Implement suitable error handling here
+ENDIF.
+
+*CALL FUNCTION '/1BCDWB/SF00000701'
+* EXPORTING
+*   CONTROL_PARAMETERS         = GS_CONTROL_PARAMETERS
+*   OUTPUT_OPTIONS             = GS_OUTPUT_OPTIONS
+*   USER_SETTINGS              = 'X'
+* IMPORTING
+*   JOB_OUTPUT_INFO            = GS_JOB_OUTPUT_INFO
+* EXCEPTIONS
+*   FORMATTING_ERROR           = 1
+*   INTERNAL_ERROR             = 2
+*   SEND_ERROR                 = 3
+*   USER_CANCELED              = 4
+*   OTHERS                     = 5
+*          .
+*IF SY-SUBRC <> 0.
+** Implement suitable error handling here
+*ENDIF.

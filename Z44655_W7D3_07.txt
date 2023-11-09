@@ -1,0 +1,13 @@
+*&---------------------------------------------------------------------*
+*& Report Z44655_W7D3_07
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT Z44655_W7D3_07.
+
+DATA GT_SCARR TYPE STANDARD TABLE OF SCARR.
+SELECT * FROM SCARR INTO TABLE GT_SCARR.
+
+ASSIGN ('(Z44655_W7D3_07)GT_SCARR') TO FIELD-SYMBOL(<GT_SCARR>).
+
+CALL FUNCTION 'ZFM_44655_POINTER'.
